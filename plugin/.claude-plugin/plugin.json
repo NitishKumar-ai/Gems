@@ -1,0 +1,16 @@
+{
+  "name": "gems",
+  "version": "0.1.0",
+  "description": "Turns how you build with Claude Code into a shareable builder journey",
+  "author": {
+    "name": "Gems"
+  },
+  "license": "MIT",
+  "keywords": [
+    "portfolio",
+    "journey",
+    "achievements",
+    "sessions",
+    "analytics"
+  ]
+}

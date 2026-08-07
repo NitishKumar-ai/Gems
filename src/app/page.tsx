@@ -27,71 +27,118 @@ export default function Home() {
         throw new Error(data.error || 'Failed to import repository');
       }
 
-      // Redirect to the dynamic portfolio page
-      router.push(\`/\${data.data.owner}/\${data.data.repo}\`);
-    } catch (err: any) {
-      setError(err.message);
+      router.push(`/${data.data.owner}/${data.data.repo}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import repository');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-black text-zinc-100 font-mono">
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 via-black to-purple-900/20 pointer-events-none"></div>
+    <main className="flex min-h-screen flex-col font-sans bg-canvas text-ink">
+      {/* Top Navbar */}
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 bg-canvas border-b border-hairline-soft">
+        <div className="flex items-center gap-2">
+          <span className="font-display font-bold text-xl tracking-tight">VibeCoder_</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <a href="#" className="text-sm font-medium hover:text-primary transition-colors">Documentation</a>
+          <button className="bg-ink text-on-primary font-medium text-sm px-5 py-2.5 rounded-md hover:bg-ink-tint transition-colors">
+            Try Studio
+          </button>
+        </div>
+      </nav>
 
-      <div className="z-10 w-full max-w-xl flex flex-col items-center space-y-8">
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-400 to-purple-500">
-            VibeCoder
+      {/* Hero Section */}
+      <section className="relative w-full flex flex-col lg:flex-row min-h-[70vh] bg-canvas">
+        {/* Left: Text */}
+        <div className="flex-1 flex flex-col justify-center px-8 py-16 lg:px-24">
+          <h1 className="font-display text-5xl lg:text-7xl leading-[1.05] tracking-tight text-ink mb-6 max-w-2xl">
+            Vibe Coding.<br />In your hands.
           </h1>
-          <p className="text-zinc-400 text-sm md:text-base max-w-md mx-auto">
-            Drop your AI-generated GitHub repo to create a dynamic portfolio and get roasted by Gem.
+          <p className="text-lg text-ink-tint mb-10 max-w-xl leading-relaxed">
+            Drop your AI-generated GitHub repo to create a dynamic portfolio and analyze the human-AI collaborative journey.
           </p>
+
+          <form onSubmit={handleImport} className="w-full max-w-md space-y-4">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="repoUrl" className="sr-only">
+                GitHub repository URL
+              </label>
+              <input
+                id="repoUrl"
+                name="repoUrl"
+                type="text"
+                value={repoUrl}
+                onChange={(e) => setRepoUrl(e.target.value)}
+                placeholder="https://github.com/username/repo"
+                className="w-full bg-canvas text-ink border border-hairline-strong rounded-md px-4 py-3 h-11 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-base"
+                required
+              />
+            </div>
+            {error && (
+              <div className="text-red-600 text-sm py-1 font-medium">
+                {error}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-primary hover:bg-primary-deep text-on-primary font-medium px-5 py-3 rounded-md transition-colors flex justify-center items-center h-11 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Analyzing Vibes...' : 'Generate Portfolio'}
+            </button>
+          </form>
         </div>
 
-        <form onSubmit={handleImport} className="w-full space-y-4 bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800 backdrop-blur-xl shadow-2xl">
-          <div className="space-y-2">
-            <label htmlFor="repoUrl" className="text-xs text-zinc-500 uppercase tracking-widest">
-              GitHub Repository URL
-            </label>
-            <input
-              id="repoUrl"
-              type="text"
-              value={repoUrl}
-              onChange={(e) => setRepoUrl(e.target.value)}
-              placeholder="https://github.com/username/repo"
-              className="w-full bg-black/50 border border-zinc-800 rounded-lg px-4 py-3 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              required
-            />
-          </div>
+        {/* Right: Photographic Mountain Sunset */}
+        <div className="flex-1 relative hidden lg:block overflow-hidden">
+          {/* A pure CSS sunset mountain gradient for the demo, or an actual image */}
+          <div className="absolute inset-0 bg-gradient-to-br from-sunshine-500 via-primary to-primary-deep"></div>
+          {/* Subtle overlay to simulate landscape */}
+          <div className="absolute bottom-0 w-full h-1/2 bg-gradient-to-t from-ink/20 to-transparent"></div>
+        </div>
+      </section>
 
-          {error && (
-            <div className="text-red-400 text-sm bg-red-950/30 px-3 py-2 rounded border border-red-900/50">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold py-3 px-4 rounded-lg transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center space-x-2"
-          >
-            {isLoading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Analyzing Vibes...</span>
-              </>
-            ) : (
-              <span>Generate Portfolio</span>
-            )}
+      {/* Feature / Form Section */}
+      <section className="w-full px-8 lg:px-24 py-24 bg-surface flex justify-center">
+        <div className="bg-cream rounded-lg p-10 lg:p-12 border border-beige-deep max-w-3xl w-full text-center">
+          <h2 className="font-display text-4xl mb-6 text-ink">The next chapter of AI is yours.</h2>
+          <p className="text-base text-ink-tint mb-8 max-w-xl mx-auto">
+            Experience the workflow of the future. See exactly how much code was generated by Mistral, Gemini, or Claude, and how much was written by you.
+          </p>
+          <button className="bg-canvas text-ink font-medium border border-beige-deep px-6 py-3 rounded-md hover:bg-gray-50 transition-colors">
+            Explore Documentation
           </button>
-        </form>
-      </div>
+        </div>
+      </section>
+
+      <div className="flex-grow"></div>
+
+      {/* Mistral Signature Sunset Stripe Band */}
+      <div className="w-full h-16 bg-gradient-to-r from-primary via-sunshine-700 to-sunshine-500"></div>
+
+      {/* Footer */}
+      <footer className="w-full bg-cream py-16 px-8 lg:px-24">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div>
+            <h4 className="font-semibold text-xs uppercase tracking-widest mb-4">Why VibeCoder</h4>
+            <ul className="space-y-2">
+              <li><a href="#" className="text-primary text-sm hover:underline">Overview</a></li>
+              <li><a href="#" className="text-primary text-sm hover:underline">Technology</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-semibold text-xs uppercase tracking-widest mb-4">Explore</h4>
+            <ul className="space-y-2">
+              <li><a href="#" className="text-primary text-sm hover:underline">Portfolio</a></li>
+              <li><a href="#" className="text-primary text-sm hover:underline">Pricing</a></li>
+            </ul>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
+

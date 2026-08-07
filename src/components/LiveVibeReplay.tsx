@@ -19,18 +19,27 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isPlaying && currentIndex < commits.length - 1) {
-      timer = setTimeout(() => {
-        setCurrentIndex((prev) => prev + 1);
-      }, 2500); // 2.5 seconds per commit for the "vibe"
-    } else if (currentIndex >= commits.length - 1) {
-      setIsPlaying(false);
-    }
+    if (!isPlaying) return;
+
+    // 2.5 seconds per commit for the "vibe"
+    const timer = setTimeout(() => {
+      if (currentIndex >= commits.length - 1) {
+        setIsPlaying(false);
+      } else {
+        setCurrentIndex(currentIndex + 1);
+      }
+    }, 2500);
+
     return () => clearTimeout(timer);
   }, [isPlaying, currentIndex, commits.length]);
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
+  const togglePlay = () => {
+    // Replaying after the journey has finished restarts from the first commit
+    if (!isPlaying && currentIndex >= commits.length - 1) {
+      setCurrentIndex(0);
+    }
+    setIsPlaying(!isPlaying);
+  };
   
   if (!commits || commits.length === 0) {
     return (
@@ -63,6 +72,7 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
             onClick={togglePlay}
             className="text-zinc-400 hover:text-white transition-colors focus:outline-none"
             title={isPlaying ? "Pause replay" : "Play replay"}
+            aria-label={isPlaying ? "Pause replay" : "Play replay"}
           >
             {isPlaying ? (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,10 +101,13 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
       </div>
 
       {/* Code Viewer */}
-      <div className="relative w-full h-[400px] overflow-auto bg-[#0d1117] p-4 font-mono text-sm leading-relaxed">
+      <div className="relative w-full min-h-[180px] max-h-[400px] overflow-auto bg-[#0d1117] p-4 font-mono text-sm leading-relaxed">
         <pre className="text-zinc-300">
           {currentCommit.diffText.split('\n').map((line, i) => {
-            let lineClass = "px-2 py-0.5 w-full inline-block transition-colors duration-300 ease-in-out ";
+            // `block`, not `inline-block`: inline-block boxes at full width lay out
+            // side by side, which put every line of the diff on one row and made the
+            // viewer scroll horizontally instead of reading top to bottom.
+            let lineClass = "block px-2 py-0.5 transition-colors duration-300 ease-in-out ";
             if (line.startsWith('+')) lineClass += "text-green-400 bg-green-900/20";
             else if (line.startsWith('-')) lineClass += "text-red-400 bg-red-900/20";
             else if (line.startsWith('@@')) lineClass += "text-blue-400 opacity-80";
@@ -103,7 +116,6 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
             return (
               <span key={i} className={lineClass}>
                 {line}
-                {'\n'}
               </span>
             );
           })}
@@ -114,7 +126,7 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
       <div className="w-full h-1 bg-zinc-800">
         <div 
           className="h-full bg-cyan-500 transition-all duration-500 ease-out"
-          style={{ width: \`\${((currentIndex + 1) / commits.length) * 100}%\` }}
+          style={{ width: `${((currentIndex + 1) / commits.length) * 100}%` }}
         />
       </div>
     </div>

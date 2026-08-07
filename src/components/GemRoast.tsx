@@ -21,7 +21,7 @@ export default function GemRoast({ roastData, isLoading, error }: GemRoastProps)
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </span>
-          <h3 className="text-red-400 font-semibold font-mono">Gem's Offline</h3>
+          <h3 className="text-red-400 font-semibold font-mono">Gem&apos;s Offline</h3>
         </div>
         <p className="text-red-300/80 text-sm font-mono">{error}</p>
       </div>
@@ -54,7 +54,7 @@ export default function GemRoast({ roastData, isLoading, error }: GemRoastProps)
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg shadow-purple-500/20">
             G
           </div>
-          <h3 className="text-zinc-200 font-semibold font-mono">Gem's Roast</h3>
+          <h3 className="text-zinc-200 font-semibold font-mono">Gem&apos;s Roast</h3>
         </div>
         <span className="px-3 py-1 text-xs font-mono bg-purple-900/30 text-purple-400 border border-purple-800/50 rounded-full shadow-inner">
           {roastData.model}
@@ -62,7 +62,7 @@ export default function GemRoast({ roastData, isLoading, error }: GemRoastProps)
       </div>
       
       <div className="p-6 text-zinc-300 font-mono text-sm leading-relaxed">
-        <p className="italic text-zinc-400 mb-6">"{roastData.roastText}"</p>
+        <p className="italic text-zinc-400 mb-6">&ldquo;{roastData.roastText}&rdquo;</p>
         
         <div className="mb-6 flex items-center space-x-2">
           <span className="text-zinc-500 uppercase tracking-widest text-xs">Vibe Rating:</span>
