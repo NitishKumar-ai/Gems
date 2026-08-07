@@ -3,9 +3,9 @@
 Captures your Claude Code sessions and turns each one into metrics, so Gems can build a builder
 journey out of them.
 
-**Scope: capture, extract, and terminal journey.** A `/gems` command to read your own journey in the terminal is
-provided. Publishing anything is Phase 4. Nothing here is transmitted anywhere — there is no network
-code in this plugin.
+**Scope: capture, extract, journey, achievements, and publish.** `/gems` reads your journey in the
+terminal and works fully offline. `/gems publish` is the only code here that touches the network,
+and it sends the derived artifact described below — never a transcript.
 
 ## What it does
 
@@ -125,6 +125,40 @@ absent evidence.
 Sessions with no `metrics` — Phase 1 records, or transcripts already gone at capture time — are
 counted as `unextracted` rather than as sessions that scored zero.
 
+## Achievements
+
+[lib/achievements.mjs](lib/achievements.mjs) turns the same sorted, deduplicated session list into
+badges, and rides along on the journey as `achievements`. The design assumption is that people will
+try to farm them, which drives three rules:
+
+**Empty sessions count for nothing.** A session that opened and closed has no tool calls, so its
+failure rate is a perfect 0% and nothing contradicts it. Any rule counting sessions is farmed by
+quitting Claude Code in a loop unless sessions have to earn their place first — so a session counts
+only with at least `QUALIFYING_TOOL_CALLS` (5) tool calls and `QUALIFYING_ASSISTANT_TURNS` (3)
+assistant turns. Everything below that lands in `ignored_sessions`, stated on the profile rather
+than quietly dropped. The totals above still count it; this gate belongs to badges alone.
+
+**Every ratio carries a volume floor.** Informing one edit out of one is 100% and is evidence of
+nothing. `reads-first` needs 90% across 50 edits, `clean-hands` needs ≤2% across 200 calls, and both
+halves have to hold at once.
+
+**Consistency is measured in calendar days, never session count.** Fourteen sessions fit in an
+afternoon; fourteen distinct days do not. Days and weeks bucket in UTC so two machines agree, and a
+profile does not change when its owner flies somewhere.
+
+Rules are checked against every prefix of history, and the first prefix where one holds is when it
+was earned. That is what makes a badge a record rather than a readout: testing the trailing window
+instead would make badges blink out on a bad week. `getting-better` is the deliberate exception —
+it is a present-tense claim about direction of travel, so it is allowed to lapse and is marked
+`revocable` so nothing has to infer that.
+
+Each badge names the numbers that earned it and the ordinal of the session that crossed the line —
+"your 12th session", never the session id. Session ids are Claude Code UUIDs, and this artifact is
+built to be published. A test asserts none reach the output.
+
+Locked badges carry `progress`, which reports whichever condition is still binding: a rule needing
+50 edits at 90% informed, sitting at 192 edits and 79%, reports the rate and not `192/50`.
+
 ## Permissions
 
 `~/.gems/` is created `0700` and its files `0600`. The store names repositories, working
@@ -199,6 +233,7 @@ hatch for non-default Claude Code installs.
 | [hooks/capture-session.mjs](hooks/capture-session.mjs) | Locates the transcript, extracts, appends one store record |
 | [lib/extract.mjs](lib/extract.mjs) | One transcript → one metrics object. Pure, streaming, no I/O beyond the read |
 | [lib/journey.mjs](lib/journey.mjs) | The store → totals and evolution deltas |
+| [lib/achievements.mjs](lib/achievements.mjs) | The store → earned and locked badges, with the evidence for each |
 
 ## Tests
 
@@ -206,7 +241,7 @@ hatch for non-default Claude Code installs.
 bun run test:plugin
 ```
 
-53 tests. Scoped to `plugin/` on purpose — an unscoped `bun test` would also collect the Playwright
+89 tests. Scoped to `plugin/` on purpose — an unscoped `bun test` would also collect the Playwright
 spec in `tests/e2e/`, which needs a browser and a dev server.
 
 ```bash

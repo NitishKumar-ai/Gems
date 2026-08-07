@@ -3,6 +3,50 @@
 All notable changes to Gems are recorded here. This project follows
 [Semantic Versioning](https://semver.org/) using the version in `package.json`.
 
+## [0.6.0] - 2026-08-08
+
+### Added
+
+- **Achievements you actually earned.** Ten badges derived from your own session history, each one
+  naming the numbers behind it — "informed 57 of 60 edits (95.0%)", not just a trophy. They show up
+  in `/gems`, travel with `/gems publish`, and render on your public profile. Badges you have not
+  earned yet show how close you are, and say which condition is still the blocker.
+- **Badges are built to resist farming.** A session only counts toward one if it contains real work
+  (5 or more tool calls, 3 or more assistant turns), so opening and closing Claude Code in a loop
+  earns nothing. Every rate carries a minimum volume, because informing one edit out of one proves
+  nothing. Streaks count calendar days in UTC, so fourteen sessions in an afternoon is not a
+  fortnight and flying somewhere does not change your profile.
+- **Badges are a record, not a live readout.** Each rule is tested against every point in your
+  history, so the first moment you met it is when you earned it, and it stays earned through a bad
+  week. The one exception is "Getting Better", which is a claim about your current direction of
+  travel and says on the profile that it can lapse.
+- **Evolution now shows the volume behind the change.** A trend reports the edit counts in each half
+  of your history, so a swing of twelve points can be read as the real move or the small sample it
+  might be.
+
+### Fixed
+
+- **Anyone with an API key could take over your public profile.** `/api/publish` trusted the
+  username in the request body without checking it against the key that sent it, so a valid key
+  could overwrite any profile and reassign ownership in the same call. Publishing now refuses to
+  touch a profile another account owns. An empty bearer token is also rejected before it reaches
+  the database.
+- **A partially filled profile took the whole page down.** Any published journey missing a rate or a
+  trend delta crashed the profile with a server error instead of showing "N/A". Missing numbers are
+  now missing rows.
+- **The end-to-end tests work again.** They had been failing since the profile page started reading
+  from the database while the tests still went through the mock import form, which never creates a
+  profile. Tests now seed their own isolated database and never touch your local one.
+- **`DATABASE_URL` pointed somewhere surprising.** Prisma reads it relative to the schema file, so
+  `file:./dev.db` meant `prisma/dev.db` while an unused copy sat in the project root. The stray
+  copy is gone and `.env.example` documents the real setting.
+
+### Removed
+
+- **The Live Vibe Replay is no longer on the profile.** It only had invented commits to show, and
+  the page now displays a real person's published numbers. The component is still in the project and
+  comes back when there is real commit data behind it.
+
 ## [0.5.0] - 2026-08-08
 
 ### Added

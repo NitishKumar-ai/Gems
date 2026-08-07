@@ -32,23 +32,24 @@ All of it derived from your own session transcripts, none of it self-reported:
 | **Session shape** | Length, token cost, how many agents in parallel |
 | **Evolution deltas** | All of the above, plotted over time — the actual journey |
 
-Achievements are derived from these, and only from these. "First session with zero failed tool
-calls," "ten sessions running tests before editing," "shipped on a Tuesday for four weeks straight."
-Earned from evidence, never granted for showing up.
+Achievements are derived from these, and only from these — "informed 90% of edits across 50 edits,"
+"real work on 14 separate days," "evidence-before-edit up 10 points against your own earlier
+sessions." Earned from evidence, never granted for showing up.
 
 Deliberately excluded: a "% of code written by AI" number. It is trivially gamed and says nothing
 about whether you understood what you shipped.
 
 ## Current state
 
-The web surface exists as a working mock. The plugin is real: it captures each session and derives
-metrics from it. Nothing is published yet — the profile page still renders from a hardcoded mock.
+The plugin is real end to end: it captures each session, derives metrics, evaluates achievements, and
+publishes a redacted artifact that the profile page renders. What is still mock is the roast and the
+replay, both flavor rather than measurement.
 
 | Piece | Where | State |
 |---|---|---|
 | Landing page + import form | [src/app/page.tsx](src/app/page.tsx) | Real UI, Mistral-inspired design system |
-| Profile page | [src/app/[username]/[repo]/page.tsx](src/app/[username]/[repo]/page.tsx) | Renders from a hardcoded mock |
-| Live Vibe Replay | [src/components/LiveVibeReplay.tsx](src/components/LiveVibeReplay.tsx) | Real component, mock commits |
+| Profile page | [src/app/[username]/[repo]/page.tsx](src/app/[username]/[repo]/page.tsx) | Real — renders published metrics and achievements |
+| Live Vibe Replay | [src/components/LiveVibeReplay.tsx](src/components/LiveVibeReplay.tsx) | Real component, **not mounted** — see below |
 | Gem Roast | [src/components/GemRoast.tsx](src/components/GemRoast.tsx) | Real component, mock roast |
 | Import endpoint | [src/app/api/import/route.ts](src/app/api/import/route.ts) | Regex on a GitHub URL, nothing more |
 | Roast service | [src/services/llm.ts](src/services/llm.ts) | Mock — a `setTimeout` and canned text |
@@ -57,13 +58,21 @@ metrics from it. Nothing is published yet — the profile page still renders fro
 | Longitudinal store | `~/.gems/sessions.jsonl` | Real, written by the hook. Carries derived metrics per session |
 | Extractor / metrics | [plugin/lib/extract.mjs](plugin/lib/extract.mjs) | Real, tested — one transcript to one metrics object |
 | Journey / evolution deltas | [plugin/lib/journey.mjs](plugin/lib/journey.mjs) | Real, tested — pooled totals and trend across the store |
+| Achievements | [plugin/lib/achievements.mjs](plugin/lib/achievements.mjs) | Real, tested — ten farm-resistant badges, each citing its evidence |
 | `/gems` command | [plugin/commands/gems.mjs](plugin/commands/gems.mjs) | Real, tested — works offline, displays CLI summary |
 | Persistence / identity | [src/app/dashboard/page.tsx](src/app/dashboard/page.tsx) | Real — SQLite database with NextAuth GitHub login |
-| Plugin tests | [plugin/](plugin/) | 53 tests, passing |
-| E2E test | [tests/e2e/portfolio.spec.ts](tests/e2e/portfolio.spec.ts) | 1 test, passing |
+| Plugin tests | [plugin/](plugin/) | 89 tests, passing |
+| E2E test | [tests/e2e/portfolio.spec.ts](tests/e2e/portfolio.spec.ts) | 3 tests, passing against a seeded fixture |
 
-The model names in the mocks are invented strings, not attribution. The extractor now produces the
-real thing; wiring it into the page is Phase 4.
+**The replay is built but not on the profile.** Phase 4 stopped mounting
+[LiveVibeReplay](src/components/LiveVibeReplay.tsx) when the page started rendering published
+metrics, and Phase 5 left it that way: the component only has invented commits to show, and putting
+those beside a real person's numbers is the thing decision 3 below exists to prevent. It comes back
+when there is real commit data to feed it. The roast has the same problem and is still there, which
+is inconsistent — it is the next thing to resolve, not a defended position.
+
+Model names on a published profile are exact ids taken from the transcript. The invented strings that
+remain live only in the roast and the replay, which are decoration and are marked as such above.
 
 ## Three decisions, and the evidence for them
 
@@ -174,12 +183,39 @@ where identity and persistence finally become unavoidable.
 
 *Depends on:* Phase 3, and a decision on identity + store.
 
-### Phase 5 — Achievements
+### Phase 5 — Achievements ✅ done
 
-Derived from the longitudinal store, each one traceable to the sessions that earned it.
+Ten badges derived from the longitudinal store, in [plugin/lib/achievements.mjs](plugin/lib/achievements.mjs),
+each naming the numbers that earned it. They ride along on the journey artifact, so `/gems`,
+`/gems publish`, and the profile page all read the same evaluation.
 
-Design constraint: assume people will try to farm them. An achievement that rewards volume gets
-farmed; one that rewards a ratio holding over time is much harder to fake.
+The design constraint was to assume people will farm them. Three things came out of taking that
+seriously:
+
+- **The gate matters more than the catalog.** Without one, "ten sessions with zero failed tool
+  calls" is farmed by opening and closing Claude Code ten times — each empty session has no tool
+  calls, so its failure rate is a perfect 0% and nothing contradicts it. A session counts only with
+  5+ tool calls and 3+ assistant turns; the rest are reported as `ignored_sessions` rather than
+  quietly dropped.
+- **Ratios need a floor under the denominator.** Informing one edit out of one is 100% and is
+  evidence of nothing, so every rate rule carries a minimum volume that has to hold at the same time.
+- **Consistency is counted in calendar days, never sessions.** Fourteen sessions fit in an afternoon.
+  Days and weeks bucket in UTC, so a profile does not change when its owner changes timezone.
+
+Rules are checked against every prefix of history, so the first prefix where one holds is when it was
+earned, and it stays earned. Testing the trailing window instead would make badges blink out on a bad
+week, which turns a record into a live readout. `getting-better` is the one deliberate exception: it
+is a present-tense claim about direction of travel, so it is allowed to lapse and is marked
+`revocable` rather than leaving anyone to infer it.
+
+Badges cite the *ordinal* of the session that crossed the line — "your 12th session" — never the
+session id, because those are Claude Code UUIDs and this artifact is built to be published. A test
+asserts none reach the output.
+
+*Found while building it:* a bare majority is not a habit. `hands-on` originally fired above 50%, but
+since rules are tested against every prefix, a genuinely coin-flip habit still crosses half on
+odd-length prefixes — 11 of 21 is a majority. The bar is 60%, and the gap above half is what makes
+the claim mean anything.
 
 *Depends on:* Phase 4, so they are shareable.
 
@@ -266,6 +302,13 @@ Next.js 16 (App Router, Turbopack) · React 19 · Tailwind CSS 3 · TypeScript �
 bun install
 ```
 
+Create the local database — Prisma resolves `DATABASE_URL` relative to `prisma/schema.prisma`, so
+`file:./dev.db` means `prisma/dev.db`. Copy [.env.example](.env.example) to `.env` first:
+
+```bash
+cp .env.example .env && npx prisma db push
+```
+
 ```bash
 bun run dev
 ```
@@ -279,7 +322,8 @@ Run the plugin unit tests:
 bun run test:plugin
 ```
 
-Run the E2E test (starts its own dev server):
+Run the E2E tests. They start their own dev server and seed an isolated database from
+[tests/e2e/global-setup.ts](tests/e2e/global-setup.ts), so they never touch your `prisma/dev.db`:
 
 ```bash
 bun run test:e2e
