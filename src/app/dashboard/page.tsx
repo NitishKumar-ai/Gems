@@ -48,7 +48,7 @@ export default async function DashboardPage() {
             {user?.apiKey}
           </div>
           <div className="mt-4">
-            <code className="text-sm bg-gray-100 px-2 py-1 rounded">export GEMS_API_KEY="{user?.apiKey}"</code>
+            <code className="text-sm bg-gray-100 px-2 py-1 rounded">export GEMS_API_KEY=&quot;{user?.apiKey}&quot;</code>
           </div>
         </div>
 
