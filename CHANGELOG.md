@@ -3,6 +3,17 @@
 All notable changes to Gems are recorded here. This project follows
 [Semantic Versioning](https://semver.org/) using the version in `package.json`.
 
+## [0.4.0] - 2026-08-08
+
+### Added
+
+- **`/gems` terminal command.** See your own journey in the terminal, completely offline. The plugin is now ready for use and includes a `commands.json` registration for Claude Code.
+
+### Changed
+
+- **Calendar time trends.** Evolution deltas now split your sessions at the calendar midpoint between the first and last session, rather than simply splitting the number of sessions in half. This provides an accurate "before vs now" view even if session frequency varies.
+- **`Grep` as evidence.** Using the `Grep` tool now counts as global evidence for the session. Edits following a grep are correctly scored as informed, fixing a bug where they were counted as blind edits.
+
 ## [0.3.0] - 2026-08-08
 
 ### Added

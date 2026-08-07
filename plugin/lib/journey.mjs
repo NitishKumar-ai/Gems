@@ -198,8 +198,21 @@ export function buildJourney(records, { minSessionsForTrend = MIN_SESSIONS_FOR_T
 
   let trend = null;
   if (extracted.length >= minSessionsForTrend) {
-    const midpoint = Math.floor(extracted.length / 2);
-    trend = compareWindows(extracted.slice(0, midpoint), extracted.slice(midpoint));
+    const firstTime = new Date(extracted[0].metrics?.started_at ?? extracted[0].captured_at).getTime();
+    const lastTime = new Date(
+      extracted[extracted.length - 1].metrics?.started_at ?? extracted[extracted.length - 1].captured_at
+    ).getTime();
+    const midpointTime = firstTime + (lastTime - firstTime) / 2;
+
+    const earlier = [];
+    const recent = [];
+    for (const session of extracted) {
+      const time = new Date(session.metrics?.started_at ?? session.captured_at).getTime();
+      if (time < midpointTime) earlier.push(session);
+      else recent.push(session);
+    }
+
+    trend = compareWindows(earlier, recent);
   }
 
   return {

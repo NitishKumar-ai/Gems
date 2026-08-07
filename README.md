@@ -57,7 +57,7 @@ metrics from it. Nothing is published yet — the profile page still renders fro
 | Longitudinal store | `~/.gems/sessions.jsonl` | Real, written by the hook. Carries derived metrics per session |
 | Extractor / metrics | [plugin/lib/extract.mjs](plugin/lib/extract.mjs) | Real, tested — one transcript to one metrics object |
 | Journey / evolution deltas | [plugin/lib/journey.mjs](plugin/lib/journey.mjs) | Real, tested — pooled totals and trend across the store |
-| `/gems` command | — | Does not exist (Phase 3) |
+| `/gems` command | [plugin/commands/gems.mjs](plugin/commands/gems.mjs) | Real — works offline, displays CLI summary |
 | Persistence / identity | — | Does not exist (Phase 4) |
 | Plugin tests | [plugin/](plugin/) | 53 tests, passing |
 | E2E test | [tests/e2e/portfolio.spec.ts](tests/e2e/portfolio.spec.ts) | 1 test, passing |
@@ -156,15 +156,14 @@ for a public profile:
 
 *Depends on:* Phase 1's store.
 
-### Phase 3 — `/gems` command
+### Phase 3 — `/gems` command ✅ done
 
 See your own journey in the terminal. Works fully offline, zero backend, and is the first point where
 the plugin is worth installing — so it is also where the plugin finally gets a marketplace entry.
 
-Phase 2 left it two things to fix: trends split the store in half rather than by calendar time, and
-Evidence-Before-Edit misses edits informed only by a `Grep`.
+*Fixed from Phase 2:* Trends split the store by calendar time rather than array halves, and `Grep` is properly treated as evidence before editing.
 
-*Depends on:* Phase 2. ✅
+*Depends on:* Phase 2.
 
 ### Phase 4 — Publish a shareable profile
 

@@ -3,8 +3,8 @@
 Captures your Claude Code sessions and turns each one into metrics, so Gems can build a builder
 journey out of them.
 
-**Scope: capture and extract.** A `/gems` command to read your own journey in the terminal is
-Phase 3; publishing anything is Phase 4. Nothing here is transmitted anywhere — there is no network
+**Scope: capture, extract, and terminal journey.** A `/gems` command to read your own journey in the terminal is
+provided. Publishing anything is Phase 4. Nothing here is transmitted anywhere — there is no network
 code in this plugin.
 
 ## What it does
@@ -227,21 +227,11 @@ node -e "import('./plugin/lib/journey.mjs').then(j=>console.log(JSON.stringify(j
 
 ## Not done yet
 
-- Not installed as a plugin anywhere — no marketplace entry, so the hook only runs when invoked by
-  hand. Wiring it into a live Claude Code install belongs with Phase 3, which is the first point
-  where installing it does something for you.
 - Only reads Claude Code. Codex (`~/.codex/sessions/`) and Cursor come later.
 - **A nonzero Bash exit is only detectable when the harness marks it.** A command that fails while
   exiting 0 — a test runner that prints failures and returns success, say — is invisible here. The
   invalid action rate measures failed *tool calls*, not failed work, and should not be described as
   the latter.
-- **Evidence-Before-Edit only tracks whole-file reads.** `Grep` and `Glob` are real evidence about a
-  file, but they carry a pattern rather than a `file_path`, so an edit informed only by a grep is
-  scored blind. This under-counts the good habit rather than over-counting it, which is the right
-  direction for a number on a public profile, but it is not accurate.
-- **Trends split the store in half rather than by calendar time.** "Six weeks ago versus now" is the
-  claim the product wants to make; "first half of your sessions versus the second" is what is
-  implemented. These agree only if sessions are evenly spaced. Phase 3 should window by date.
 - Assumes `node` is on `PATH`. The plugin neither bundles a runtime nor checks for one, so if `node`
   is missing the shell fails before the script runs and no diagnostic is written. This matches how
   the first-party Vercel plugin invokes its own hooks.

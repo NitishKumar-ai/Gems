@@ -340,3 +340,18 @@ test('sidechain records are counted so parallel agent work is visible', async ()
 
   expect(m.sidechain_records).toBe(1);
 });
+
+test('a Grep informs subsequent edits across the session', async () => {
+  const path = transcript([
+    assistant('msg_1', [{ type: 'tool_use', id: 'tu_1', name: 'Grep', input: { path: '/repo', pattern: 'foo' } }]),
+    toolResult('tu_1', { stdout: 'match' }),
+    assistant('msg_2', [{ type: 'tool_use', id: 'tu_2', name: 'Edit', input: { file_path: '/repo/a.ts' } }]),
+    toolResult('tu_2', { filePath: '/repo/a.ts', type: 'update' }),
+  ]);
+
+  const m = (await extractTranscript(path))!;
+
+  expect(m.evidence_before_edit.edits).toBe(1);
+  expect(m.evidence_before_edit.informed).toBe(1);
+  expect(m.evidence_before_edit.blind).toBe(0);
+});

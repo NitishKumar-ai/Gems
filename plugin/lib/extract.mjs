@@ -171,6 +171,7 @@ function newAccumulator() {
     failureSignals: new Map(),
     seenMessages: new Set(),
     readFiles: new Set(),
+    globalEvidence: false,
     pendingWrites: new Map(),
 
     assistantTurns: 0,
@@ -257,6 +258,11 @@ function absorbToolUse(acc, block) {
     return;
   }
 
+  if (name === 'Grep') {
+    acc.globalEvidence = true;
+    return;
+  }
+
   if (typeof filePath !== 'string' || filePath.length === 0) return;
 
   if (EVIDENCE_TOOLS.has(name)) {
@@ -277,7 +283,7 @@ function absorbToolUse(acc, block) {
 
 function countEdit(acc, filePath) {
   acc.edits += 1;
-  if (acc.readFiles.has(filePath)) acc.informedEdits += 1;
+  if (acc.readFiles.has(filePath) || acc.globalEvidence) acc.informedEdits += 1;
   // After changing a file you know what is in it, so later edits to it are informed.
   acc.readFiles.add(filePath);
 }
