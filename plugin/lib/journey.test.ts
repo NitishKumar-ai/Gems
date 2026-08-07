@@ -228,4 +228,46 @@ test('an empty store produces a journey with nothing claimed', () => {
   expect(journey.totals.rates.evidence_before_edit).toBeNull();
   expect(journey.trend).toBeNull();
   expect(journey.first_session_at).toBeNull();
+  expect(journey.achievements.earned).toEqual([]);
+});
+
+test('a journey carries achievements derived from the same sessions as its totals', () => {
+  const sessions = Array.from({ length: 3 }, (_, i) =>
+    session(`s${i}`, `2026-08-0${i + 1}T00:00:00.000Z`, { edits: 20, informed: 20, calls: 40, turns: 8 }),
+  );
+
+  const journey = buildJourney(sessions);
+  const earned = journey.achievements.earned.map((a: { id: string }) => a.id);
+
+  expect(journey.achievements.qualifying_sessions).toBe(journey.totals.sessions);
+  expect(earned).toContain('reads-first');
+  expect(earned).toContain('first-light');
+});
+
+// The gate belongs to achievements alone. Totals still describe everything captured, so a
+// thin session is absent from the badges without going missing from the record.
+test('sessions too thin for achievements still count toward totals', () => {
+  const journey = buildJourney([
+    session('real', '2026-08-01T00:00:00.000Z', { calls: 40, turns: 10 }),
+    session('empty', '2026-08-02T00:00:00.000Z', { calls: 0, turns: 0 }),
+  ]);
+
+  expect(journey.totals.sessions).toBe(2);
+  expect(journey.achievements.qualifying_sessions).toBe(1);
+  expect(journey.achievements.ignored_sessions).toBe(1);
+});
+
+test('window summaries carry the counts behind their rates', () => {
+  const early = Array.from({ length: 3 }, (_, i) =>
+    session(`e${i}`, `2026-08-0${i + 1}T00:00:00.000Z`, { edits: 10, informed: 5 }),
+  );
+  const recent = Array.from({ length: 3 }, (_, i) =>
+    session(`r${i}`, `2026-09-0${i + 1}T00:00:00.000Z`, { edits: 10, informed: 9 }),
+  );
+
+  const journey = buildJourney([...early, ...recent]);
+  if (!journey.trend) throw new Error('expected a trend from six sessions');
+
+  expect(journey.trend.earlier.edits).toBe(30);
+  expect(journey.trend.recent.edits).toBe(30);
 });
