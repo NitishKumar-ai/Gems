@@ -100,10 +100,13 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
       </div>
 
       {/* Code Viewer */}
-      <div className="relative w-full h-[400px] overflow-auto bg-[#0d1117] p-4 font-mono text-sm leading-relaxed">
+      <div className="relative w-full min-h-[180px] max-h-[400px] overflow-auto bg-[#0d1117] p-4 font-mono text-sm leading-relaxed">
         <pre className="text-zinc-300">
           {currentCommit.diffText.split('\n').map((line, i) => {
-            let lineClass = "px-2 py-0.5 w-full inline-block transition-colors duration-300 ease-in-out ";
+            // `block`, not `inline-block`: inline-block boxes at full width lay out
+            // side by side, which put every line of the diff on one row and made the
+            // viewer scroll horizontally instead of reading top to bottom.
+            let lineClass = "block px-2 py-0.5 transition-colors duration-300 ease-in-out ";
             if (line.startsWith('+')) lineClass += "text-green-400 bg-green-900/20";
             else if (line.startsWith('-')) lineClass += "text-red-400 bg-red-900/20";
             else if (line.startsWith('@@')) lineClass += "text-blue-400 opacity-80";
@@ -112,7 +115,6 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
             return (
               <span key={i} className={lineClass}>
                 {line}
-                {'\n'}
               </span>
             );
           })}
