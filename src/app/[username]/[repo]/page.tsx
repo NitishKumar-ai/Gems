@@ -35,7 +35,7 @@ async function getRepoData(username: string, repo: string) {
   ];
 
   const mockRoast = {
-    roastText: \`Oh honey, a 'web3 startup' landing page? Groundbreaking. The gradients are cute, but the fact that you needed Claude to tell you how to add a CSS class is giving 'I just learned HTML yesterday' energy. At least you fixed the hydration error—eventually.\`,
+    roastText: `Oh honey, a 'web3 startup' landing page? Groundbreaking. The gradients are cute, but the fact that you needed Claude to tell you how to add a CSS class is giving 'I just learned HTML yesterday' energy. At least you fixed the hydration error—eventually.`,
     model: 'Gem (Claude 3.5 Opus)',
     rating: '6.5/10 - Basic Vibe',
     insights: [
@@ -48,10 +48,10 @@ async function getRepoData(username: string, repo: string) {
   return { commits: mockCommits, roast: mockRoast, modelsUsed: ['GPT-4o', 'Claude 3.5 Sonnet'] };
 }
 
-export default async function PortfolioPage({ params }: { params: { username: string, repo: string } }) {
-  const { username, repo } = params;
+export default async function PortfolioPage({ params }: { params: Promise<{ username: string, repo: string }> }) {
+  const { username, repo } = await params;
   
-  // T5: ISR is enabled via \`export const revalidate = 60\` above.
+  // T5: ISR is enabled via `export const revalidate = 60` above.
   // In a real app, this would fetch from Supabase.
   const { commits, roast, modelsUsed } = await getRepoData(username, repo);
 
@@ -62,7 +62,7 @@ export default async function PortfolioPage({ params }: { params: { username: st
         <header className="flex flex-col md:flex-row md:items-end justify-between border-b border-zinc-800 pb-8 space-y-4 md:space-y-0">
           <div>
             <h2 className="text-zinc-500 mb-1 flex items-center space-x-2">
-              <a href={\`https://github.com/\${username}\`} className="hover:text-zinc-300 transition-colors">@{username}</a>
+              <a href={`https://github.com/${username}`} className="hover:text-zinc-300 transition-colors">@{username}</a>
               <span>/</span>
             </h2>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">{repo}</h1>
@@ -96,7 +96,7 @@ export default async function PortfolioPage({ params }: { params: { username: st
           <div className="space-y-4">
             <h3 className="text-xl font-semibold flex items-center space-x-2">
               <span className="text-purple-500">🔥</span>
-              <span>Gem's Verdict</span>
+              <span>Gem&apos;s Verdict</span>
             </h3>
             <p className="text-zinc-400 text-sm">Learning through playful critique.</p>
             <GemRoast roastData={roast} isLoading={false} />
