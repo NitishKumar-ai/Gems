@@ -112,6 +112,37 @@ try {
       console.log(`Trend unavailable: ${journey.trend_unavailable_reason}`);
     }
 
+    console.log('\n--- Achievements ---');
+    const { earned, locked, qualifying_sessions, ignored_sessions } = journey.achievements;
+    if (earned.length > 0) {
+      for (const badge of earned) {
+        const when = badge.earned_at ? String(badge.earned_at).slice(0, 10) : '';
+        console.log(`  🏆 ${badge.title} (${badge.basis})${badge.revocable ? ' — held, not banked' : ''}`);
+        console.log(`     ${badge.evidence}${when ? ` · ${when}` : ''}`);
+      }
+    } else {
+      console.log('  None yet.');
+    }
+
+    // The closest three, so the next one is visible rather than a mystery.
+    const next = locked
+      .filter((badge) => badge.progress)
+      .sort((a, b) => b.progress.ratio - a.progress.ratio)
+      .slice(0, 3);
+
+    if (next.length > 0) {
+      console.log('\n  Closest to earning:');
+      for (const badge of next) {
+        console.log(`     ${badge.title}: ${badge.progress.value}/${badge.progress.target} ${badge.progress.label}`);
+      }
+    }
+
+    // Sessions too thin to count are stated rather than silently dropped, so the badge list
+    // never looks like it lost history it simply refused to award anything for.
+    if (ignored_sessions > 0) {
+      console.log(`\n  Counting ${qualifying_sessions} sessions with real work; ${ignored_sessions} too thin to qualify.`);
+    }
+
     console.log('\n--- Top Models ---');
     const models = Object.entries(journey.totals.models).slice(0, 5);
     if (models.length > 0) {
