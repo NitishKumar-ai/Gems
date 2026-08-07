@@ -112,18 +112,109 @@ test('capture writes a pointer record with counts', async () => {
   expect(JSON.parse(stored[0]).session_id).toBe('sess-4');
 });
 
-test('capture stores nothing but the pointer — no transcript content leaks', async () => {
+test('capture reads the transcript but stores no content from it', async () => {
+  // This assertion carries much more weight than it did in Phase 1, where nothing read the
+  // transcript at all and it passed trivially. Capture now parses every record, so the
+  // redaction boundary is the extractor's, and this is the test that holds it.
   mkdirSync(join(projects, '-work-repo'), { recursive: true });
   writeFileSync(
     join(projects, '-work-repo', 'sess-secret.jsonl'),
-    `${JSON.stringify({ type: 'user', message: { content: 'MY_API_KEY=super-secret-value' } })}\n`,
+    [
+      JSON.stringify({ type: 'user', timestamp: '2026-08-07T15:00:00.000Z', message: { content: 'MY_API_KEY=super-secret-value' } }),
+      JSON.stringify({
+        type: 'assistant',
+        timestamp: '2026-08-07T15:00:01.000Z',
+        message: {
+          id: 'msg_1',
+          model: 'claude-opus-5',
+          content: [{ type: 'tool_use', id: 'tu_1', name: 'Write', input: { file_path: '/private/keys.env', content: 'TOKEN=leak-me' } }],
+          usage: { input_tokens: 1, output_tokens: 2 },
+        },
+      }),
+      JSON.stringify({
+        type: 'user',
+        timestamp: '2026-08-07T15:00:02.000Z',
+        message: { content: [{ type: 'tool_result', tool_use_id: 'tu_1' }] },
+        toolUseResult: { filePath: '/private/keys.env', type: 'create', content: 'TOKEN=leak-me' },
+      }),
+    ].join('\n') + '\n',
   );
 
-  await capture({ raw: JSON.stringify({ session_id: 'sess-secret', cwd: '/work/repo' }), env: env() });
+  const result = await capture({ raw: JSON.stringify({ session_id: 'sess-secret', cwd: '/work/repo' }), env: env() });
+
+  // The transcript really was parsed — otherwise this test proves nothing.
+  expect(result.record!.metrics!.turns.assistant).toBe(1);
 
   const stored = readFileSync(join(gemsHome, 'sessions.jsonl'), 'utf8');
   expect(stored).not.toContain('super-secret-value');
   expect(stored).not.toContain('MY_API_KEY');
+  expect(stored).not.toContain('leak-me');
+  expect(stored).not.toContain('TOKEN');
+  expect(stored).not.toContain('keys.env');
+});
+
+test('capture attaches derived metrics to the record', async () => {
+  mkdirSync(join(projects, '-work-repo'), { recursive: true });
+  writeFileSync(
+    join(projects, '-work-repo', 'sess-metrics.jsonl'),
+    [
+      JSON.stringify({
+        type: 'assistant',
+        timestamp: '2026-08-07T15:00:00.000Z',
+        message: {
+          id: 'msg_1',
+          model: 'claude-opus-5',
+          content: [{ type: 'tool_use', id: 'tu_1', name: 'Bash', input: { command: 'ls' } }],
+          usage: { input_tokens: 3, output_tokens: 7, cache_read_input_tokens: 11, cache_creation_input_tokens: 2 },
+        },
+      }),
+      JSON.stringify({
+        type: 'user',
+        timestamp: '2026-08-07T15:00:04.000Z',
+        message: { content: [{ type: 'tool_result', tool_use_id: 'tu_1', is_error: false }] },
+        toolUseResult: { stdout: 'a', stderr: '', interrupted: false },
+      }),
+    ].join('\n') + '\n',
+  );
+
+  const result = await capture({ raw: JSON.stringify({ session_id: 'sess-metrics', cwd: '/work/repo' }), env: env() });
+
+  expect(result.captured).toBe(true);
+  expect(result.record!.schema).toBe(SCHEMA_VERSION);
+  expect(result.record!.metrics).toMatchObject({
+    models: { 'claude-opus-5': 1 },
+    tokens: { input: 3, output: 7, cache_read: 11, cache_creation: 2 },
+  });
+  expect(result.record!.metrics!.tools.by_name).toEqual({ Bash: 1 });
+  expect(result.record!.metrics!.duration_ms).toBe(4000);
+  expect(result.record!.metrics!.invalid_actions.tool_failures).toBe(0);
+});
+
+test('an oversized transcript still yields a pointer record, with metrics left null', async () => {
+  // Phase 1 skipped only the line count past the cap. Extraction is skipped for the same
+  // reason: a record without metrics beats a hook killed mid-write by the 10s timeout.
+  writeTranscript('-work-repo', 'sess-huge', 4);
+
+  const result = await capture({
+    raw: JSON.stringify({ session_id: 'sess-huge', cwd: '/work/repo' }),
+    env: env(),
+    maxLineCountBytes: 1,
+  });
+
+  expect(result.captured).toBe(true);
+  expect(result.record!.metrics).toBeNull();
+  expect(readFileSync(join(gemsHome, 'capture.log'), 'utf8')).toContain('over cap');
+});
+
+test('an unparsable transcript is still captured as a session that happened', async () => {
+  mkdirSync(join(projects, '-work-repo'), { recursive: true });
+  writeFileSync(join(projects, '-work-repo', 'sess-junk.jsonl'), 'not json\nalso not json\n');
+
+  const result = await capture({ raw: JSON.stringify({ session_id: 'sess-junk', cwd: '/work/repo' }), env: env() });
+
+  expect(result.captured).toBe(true);
+  expect(result.record!.metrics!.unparsable_lines).toBe(2);
+  expect(result.record!.metrics!.turns.assistant).toBe(0);
 });
 
 test('capture is idempotent for an unchanged session but records growth', async () => {
