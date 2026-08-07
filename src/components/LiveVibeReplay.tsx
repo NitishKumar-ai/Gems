@@ -72,6 +72,7 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
             onClick={togglePlay}
             className="text-zinc-400 hover:text-white transition-colors focus:outline-none"
             title={isPlaying ? "Pause replay" : "Play replay"}
+            aria-label={isPlaying ? "Pause replay" : "Play replay"}
           >
             {isPlaying ? (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
