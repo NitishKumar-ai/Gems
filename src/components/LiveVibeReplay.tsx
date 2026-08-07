@@ -19,18 +19,27 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isPlaying && currentIndex < commits.length - 1) {
-      timer = setTimeout(() => {
-        setCurrentIndex((prev) => prev + 1);
-      }, 2500); // 2.5 seconds per commit for the "vibe"
-    } else if (currentIndex >= commits.length - 1) {
-      setIsPlaying(false);
-    }
+    if (!isPlaying) return;
+
+    // 2.5 seconds per commit for the "vibe"
+    const timer = setTimeout(() => {
+      if (currentIndex >= commits.length - 1) {
+        setIsPlaying(false);
+      } else {
+        setCurrentIndex(currentIndex + 1);
+      }
+    }, 2500);
+
     return () => clearTimeout(timer);
   }, [isPlaying, currentIndex, commits.length]);
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
+  const togglePlay = () => {
+    // Replaying after the journey has finished restarts from the first commit
+    if (!isPlaying && currentIndex >= commits.length - 1) {
+      setCurrentIndex(0);
+    }
+    setIsPlaying(!isPlaying);
+  };
   
   if (!commits || commits.length === 0) {
     return (
@@ -114,7 +123,7 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
       <div className="w-full h-1 bg-zinc-800">
         <div 
           className="h-full bg-cyan-500 transition-all duration-500 ease-out"
-          style={{ width: \`\${((currentIndex + 1) / commits.length) * 100}%\` }}
+          style={{ width: `${((currentIndex + 1) / commits.length) * 100}%` }}
         />
       </div>
     </div>
