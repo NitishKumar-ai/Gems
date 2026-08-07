@@ -1,6 +1,7 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
 import GemRoast from '@/components/GemRoast';
+import Achievements from '@/components/Achievements';
 import prisma from '@/lib/prisma';
 
 // Revalidate this page every 60 seconds
@@ -47,9 +48,36 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
 
   const { metrics, roast, modelsUsed } = data;
   const rates = metrics.totals?.rates || {};
-  const ebe = rates.evidence_before_edit !== null ? (rates.evidence_before_edit * 100).toFixed(1) + '%' : 'N/A';
-  const iar = rates.invalid_action !== null ? (rates.invalid_action * 100).toFixed(1) + '%' : 'N/A';
-  const tpp = rates.turns_per_prompt !== null ? rates.turns_per_prompt.toFixed(1) : 'N/A';
+
+  // A rate is deliberately `null` when there was no denominator to divide by — a session with no
+  // edits has no evidence-before-edit rate, and 0% would read as editing blind every time. It can
+  // also be absent entirely: /api/publish stores whatever JSON it is handed, so an older or
+  // partial artifact reaches this page with `rates` half-filled. Checking `!== null` alone let
+  // `undefined` through to `.toFixed()`, which threw and took the whole profile down with a 500.
+  const percent = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : 'N/A';
+
+  const ebe = percent(rates.evidence_before_edit);
+  const iar = percent(rates.invalid_action);
+
+  const isNumber = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value);
+
+  const signedPercent = (value: number) => `${value > 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+  const signedClass = (value: number, betterWhen: 'up' | 'down') =>
+    (betterWhen === 'up' ? value > 0 : value < 0) ? 'text-green-400' : 'text-red-400';
+
+  // A delta is absent whenever a window had no denominator, and the whole `delta` object is
+  // absent on a partial artifact. Rows are built from what is actually present so a missing
+  // number is a missing row rather than a crash.
+  const delta = metrics.trend?.delta ?? {};
+  const deltaRows: { label: string; value: unknown; betterWhen: 'up' | 'down' }[] = [
+    { label: 'Evidence-Before-Edit', value: delta.evidence_before_edit, betterWhen: 'up' },
+    { label: 'Invalid Action Rate', value: delta.invalid_action, betterWhen: 'down' },
+  ];
+  const deltas = deltaRows.flatMap(({ label, value, betterWhen }) =>
+    isNumber(value) ? [{ label, value, betterWhen }] : [],
+  );
 
   return (
     <main className="min-h-screen bg-black text-zinc-100 font-mono p-4 md:p-8">
@@ -103,22 +131,18 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
               </div>
             </div>
             
-            {metrics.trend && (
+            {deltas.length > 0 && (
               <div className="mt-8 bg-zinc-900 p-6 rounded-lg border border-zinc-800">
                 <h4 className="text-lg font-semibold mb-4 border-b border-zinc-800 pb-2 text-zinc-200">Evolution</h4>
                 <div className="space-y-2 text-zinc-300">
-                  <div className="flex justify-between">
-                    <span>Evidence-Before-Edit:</span>
-                    <span className={metrics.trend.delta.evidence_before_edit > 0 ? 'text-green-400' : 'text-red-400'}>
-                      {metrics.trend.delta.evidence_before_edit !== null ? (metrics.trend.delta.evidence_before_edit > 0 ? '+' : '') + (metrics.trend.delta.evidence_before_edit * 100).toFixed(1) + '%' : 'N/A'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Invalid Action Rate:</span>
-                    <span className={metrics.trend.delta.invalid_action < 0 ? 'text-green-400' : 'text-red-400'}>
-                      {metrics.trend.delta.invalid_action !== null ? (metrics.trend.delta.invalid_action > 0 ? '+' : '') + (metrics.trend.delta.invalid_action * 100).toFixed(1) + '%' : 'N/A'}
-                    </span>
-                  </div>
+                  {deltas.map(({ label, value, betterWhen }) => (
+                    <div key={label} className="flex justify-between">
+                      <span>{label}:</span>
+                      {/* The sign follows the metric, never a notion of "good": rising
+                          evidence-before-edit is an improvement, rising invalid-action is not. */}
+                      <span className={signedClass(value, betterWhen)}>{signedPercent(value)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -134,6 +158,8 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
             <GemRoast roastData={roast} isLoading={false} />
           </div>
         </div>
+
+        <Achievements data={metrics.achievements ?? null} />
       </div>
     </main>
   );
