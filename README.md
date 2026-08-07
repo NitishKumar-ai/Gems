@@ -57,8 +57,8 @@ metrics from it. Nothing is published yet — the profile page still renders fro
 | Longitudinal store | `~/.gems/sessions.jsonl` | Real, written by the hook. Carries derived metrics per session |
 | Extractor / metrics | [plugin/lib/extract.mjs](plugin/lib/extract.mjs) | Real, tested — one transcript to one metrics object |
 | Journey / evolution deltas | [plugin/lib/journey.mjs](plugin/lib/journey.mjs) | Real, tested — pooled totals and trend across the store |
-| `/gems` command | [plugin/commands/gems.mjs](plugin/commands/gems.mjs) | Real — works offline, displays CLI summary |
-| Persistence / identity | — | Does not exist (Phase 4) |
+| `/gems` command | [plugin/commands/gems.mjs](plugin/commands/gems.mjs) | Real, tested — works offline, displays CLI summary |
+| Persistence / identity | [src/app/dashboard/page.tsx](src/app/dashboard/page.tsx) | Real — SQLite database with NextAuth GitHub login |
 | Plugin tests | [plugin/](plugin/) | 53 tests, passing |
 | E2E test | [tests/e2e/portfolio.spec.ts](tests/e2e/portfolio.spec.ts) | 1 test, passing |
 
@@ -165,10 +165,12 @@ the plugin is worth installing — so it is also where the plugin finally gets a
 
 *Depends on:* Phase 2.
 
-### Phase 4 — Publish a shareable profile
+### Phase 4 — Publish a shareable profile ✅ done
 
 Redacted profile artifact → a public link. This is where the existing Next.js app earns its keep, and
 where identity and persistence finally become unavoidable.
+
+*Fixed from Phase 3:* Added NextAuth (GitHub) and a Prisma SQLite database to store user identity and API keys. The `/gems publish` CLI command now pushes local metrics securely to the backend, rendering them live on the builder's profile.
 
 *Depends on:* Phase 3, and a decision on identity + store.
 

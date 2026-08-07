@@ -43,7 +43,7 @@ export default function Home() {
           <span className="font-display font-bold text-xl tracking-tight">VibeCoder_</span>
         </div>
         <div className="flex items-center gap-4">
-          <a href="#" className="text-sm font-medium hover:text-primary transition-colors">Documentation</a>
+          <a href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">Dashboard</a>
           <button className="bg-ink text-on-primary font-medium text-sm px-5 py-2.5 rounded-md hover:bg-ink-tint transition-colors">
             Try Studio
           </button>

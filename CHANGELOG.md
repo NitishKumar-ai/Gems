@@ -3,6 +3,14 @@
 All notable changes to Gems are recorded here. This project follows
 [Semantic Versioning](https://semver.org/) using the version in `package.json`.
 
+## [0.5.0] - 2026-08-08
+
+### Added
+
+- **Identity & Persistence (Phase 4).** Added an SQLite database (via Prisma) and NextAuth (GitHub) to authenticate users on the web dashboard.
+- **Publishing Journeys.** The `/gems` CLI command now accepts a `--publish` flag (or `publish` argument) which pushes the local metrics to the Next.js backend using a generated API key.
+- **Dynamic Profile Pages.** The `/[username]/[repo]` pages now fetch and render real metrics from the database instead of showing hardcoded mocks.
+
 ## [0.4.0] - 2026-08-08
 
 ### Added
