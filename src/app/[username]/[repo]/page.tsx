@@ -63,7 +63,6 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
           <div>
             <h2 className="text-zinc-500 mb-1 flex items-center space-x-2">
               <a href={`https://github.com/${username}`} className="hover:text-zinc-300 transition-colors">@{username}</a>
-              <span>/</span>
             </h2>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">{repo}</h1>
           </div>
