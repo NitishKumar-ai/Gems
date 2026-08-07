@@ -41,7 +41,8 @@ about whether you understood what you shipped.
 
 ## Current state
 
-The web surface exists as a working mock. **The plugin does not exist yet** — that is Phase 1.
+The web surface exists as a working mock. The plugin is real: it captures each session and derives
+metrics from it. Nothing is published yet — the profile page still renders from a hardcoded mock.
 
 | Piece | Where | State |
 |---|---|---|
@@ -53,14 +54,16 @@ The web surface exists as a working mock. **The plugin does not exist yet** — 
 | Roast service | [src/services/llm.ts](src/services/llm.ts) | Mock — a `setTimeout` and canned text |
 | QStash webhook | [src/app/api/webhook/route.ts](src/app/api/webhook/route.ts) | Wired, signature verification commented out |
 | Plugin capture hook | [plugin/hooks/capture-session.mjs](plugin/hooks/capture-session.mjs) | Real, tested — records session pointers |
-| Longitudinal store | `~/.gems/sessions.jsonl` | Real, written by the hook. Pointers only, no metrics yet |
-| Extractor / metrics | — | Does not exist (Phase 2) |
+| Longitudinal store | `~/.gems/sessions.jsonl` | Real, written by the hook. Carries derived metrics per session |
+| Extractor / metrics | [plugin/lib/extract.mjs](plugin/lib/extract.mjs) | Real, tested — one transcript to one metrics object |
+| Journey / evolution deltas | [plugin/lib/journey.mjs](plugin/lib/journey.mjs) | Real, tested — pooled totals and trend across the store |
+| `/gems` command | — | Does not exist (Phase 3) |
 | Persistence / identity | — | Does not exist (Phase 4) |
-| Plugin tests | [plugin/hooks/capture-session.test.ts](plugin/hooks/capture-session.test.ts) | 12 tests, passing |
+| Plugin tests | [plugin/](plugin/) | 53 tests, passing |
 | E2E test | [tests/e2e/portfolio.spec.ts](tests/e2e/portfolio.spec.ts) | 1 test, passing |
 
-The model names in the mocks are invented strings, not attribution. Replacing them with the real
-thing is the point of Phase 2.
+The model names in the mocks are invented strings, not attribution. The extractor now produces the
+real thing; wiring it into the page is Phase 4.
 
 ## Three decisions, and the evidence for them
 
@@ -123,22 +126,45 @@ Nothing user-visible yet — this proves the pipe.
 
 *Depends on:* nothing new. Mechanism verified against the installed Vercel plugin.
 
-### Phase 2 — Extractor + journey metrics
+### Phase 2 — Extractor + journey metrics ✅ done
 
-Turn captured sessions into the signals above, per session plus evolution deltas across the store.
+Captured sessions become the signals above, per session plus evolution deltas across the store.
+[plugin/lib/extract.mjs](plugin/lib/extract.mjs) turns one transcript into one metrics object;
+[plugin/lib/journey.mjs](plugin/lib/journey.mjs) turns the store into totals and a trend.
 
-The trap: error detection must catch failures that do **not** set `is_error` — top-level `error`
-keys, `isApiErrorMessage`, `retryAttempt`, nonzero Bash exits. A naive reader scored a session with
-two known failures as 100% clean. That number would go straight onto a public profile.
+Extraction moved into the `SessionEnd` hook rather than running later on demand. Phase 1 stored
+pointers to transcripts that Claude Code prunes, and flagged the resulting history loss as its most
+serious open issue. Metrics now outlive the transcripts they came from.
+
+*Traps found by running it against real session logs* — each one a confidently wrong number headed
+for a public profile:
+
+- **Tokens double.** One assistant message is written as several JSONL lines, each repeating the
+  same `usage` object. Summing per record reported 351,282 output tokens for a session that spent
+  154,341. Usage is keyed on `message.id`.
+- **Failures hide from `is_error`.** A failed Bash call arrives as the string `"Error: Exit code 1"`;
+  API trouble appears only as a top-level `error`, `isApiErrorMessage`, or `retryAttempt`. The naive
+  reader scored a session with known failures as 100% clean, exactly as predicted.
+- **`stderr` is not failure.** The obvious fix for the above — treat non-empty `stderr` as a failed
+  command — invents failures. Every non-empty `stderr` in these logs is a benign cwd-reset notice
+  from a command that exited 0.
+- **MCP tool names can carry an account id.** `mcp__<uuid>__notion-fetch` identifies a connector
+  instance, not a way of building. UUID-shaped server segments are stripped; readable ones kept.
+- **Ratios must not be averaged across sessions.** A 1-edit miss beside a 100-edit clean run is 99%,
+  not 50%. Rates are pooled from raw counts, always.
+- **A trend needs history.** Below six extracted sessions there is no trend, only a stated reason.
 
 *Depends on:* Phase 1's store.
 
 ### Phase 3 — `/gems` command
 
 See your own journey in the terminal. Works fully offline, zero backend, and is the first point where
-the plugin is worth installing.
+the plugin is worth installing — so it is also where the plugin finally gets a marketplace entry.
 
-*Depends on:* Phase 2.
+Phase 2 left it two things to fix: trends split the store in half rather than by calendar time, and
+Evidence-Before-Edit misses edits informed only by a `Grep`.
+
+*Depends on:* Phase 2. ✅
 
 ### Phase 4 — Publish a shareable profile
 

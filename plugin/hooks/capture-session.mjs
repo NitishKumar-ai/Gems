@@ -1,10 +1,19 @@
 #!/usr/bin/env node
-// Gems Phase 1 — SessionEnd capture.
+// Gems — SessionEnd capture.
 //
 // Claude Code runs this when a session ends, piping a JSON payload on stdin that
-// carries `session_id` and `cwd`. We locate that session's transcript and append a
-// pointer record to a local store. Nothing is parsed out of the transcript here and
-// nothing leaves the machine — Phase 2 owns extraction.
+// carries `session_id` and `cwd`. We locate that session's transcript, derive metrics
+// from it, and append one record to a local store.
+//
+// Extraction happens **here**, at capture time, rather than later on demand. Claude Code
+// owns the transcript directory and prunes it; a store that only pointed at those files
+// would quietly lose its own history, which is fatal for a product whose entire claim is
+// an accumulating journey. Phase 1 shipped with that risk noted as its most serious open
+// issue. This closes it: once a session is captured, the derived metrics survive the
+// transcript.
+//
+// The derived record holds counts, ratios, model ids and timestamps only. No prompt text,
+// file content, command output, or file path is read into it — see `lib/extract.mjs`.
 //
 // A hook that throws is a hook that disrupts someone's session, so every failure
 // path here degrades to "write a diagnostic line and exit 0".
@@ -25,7 +34,11 @@ import {
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-export const SCHEMA_VERSION = 1;
+import { extractTranscript } from '../lib/extract.mjs';
+
+// 2 adds the derived `metrics` object. A schema 1 record is a valid, metric-less session;
+// readers treat a missing `metrics` as thin history rather than as zeroes.
+export const SCHEMA_VERSION = 2;
 
 // This store names repositories, working directories, transcript paths, session ids and
 // activity times. On a shared machine a default umask would let other accounts read it.
@@ -147,7 +160,17 @@ export function parseHookInput(raw) {
   }
 }
 
-export function buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capturedAt }) {
+/**
+ * @param {object} args
+ * @param {string} args.sessionId
+ * @param {string | null} [args.cwd]
+ * @param {string} args.transcriptPath
+ * @param {number} args.bytes
+ * @param {number | null} args.lines
+ * @param {string} args.capturedAt
+ * @param {import('../lib/extract.mjs').SessionMetrics | null} [args.metrics]
+ */
+export function buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capturedAt, metrics = null }) {
   return {
     schema: SCHEMA_VERSION,
     source: 'claude-code',
@@ -158,6 +181,7 @@ export function buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capt
     captured_at: capturedAt,
     bytes,
     lines,
+    metrics,
   };
 }
 
@@ -275,15 +299,31 @@ export async function capture({
   // and risking the hook timeout. A record without a line count still beats no record.
   let bytes = statedSize;
   let lines = null;
+  let metrics = null;
   if (statedSize <= maxLineCountBytes) {
     const measured = await measureTranscript(transcriptPath);
     if (measured) {
       bytes = measured.bytes;
       lines = measured.lines;
     }
+
+    // Extraction is a second pass over the same file. Measured at ~5ms per MB, so even at
+    // the 32 MB cap it is a fraction of the hook's 10s budget — and keeping the passes
+    // separate is what lets `bytes` stay the single number the dedupe key is built on.
+    try {
+      metrics = await extractTranscript(transcriptPath);
+    } catch {
+      // Extraction is the enhancement; the pointer record is the floor. A session that
+      // cannot be parsed is still a session that happened.
+      metrics = null;
+    }
+
+    if (!metrics) diagnose(home, `no metrics extracted for ${sessionId}; stored pointer only`);
+  } else {
+    diagnose(home, `transcript over cap for ${sessionId}; stored pointer only`);
   }
 
-  const record = buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capturedAt: now() });
+  const record = buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capturedAt: now(), metrics });
   const written = appendRecord(join(home, 'sessions.jsonl'), record);
 
   if (!written) {

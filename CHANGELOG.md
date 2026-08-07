@@ -3,6 +3,52 @@
 All notable changes to Gems are recorded here. This project follows
 [Semantic Versioning](https://semver.org/) using the version in `package.json`.
 
+## [0.3.0] - 2026-08-08
+
+### Added
+
+- **Sessions now become numbers.** The plugin derives metrics from each session as it ends: which
+  models you actually used, whether you read a file before editing it, how often you steered the
+  agent, how much of the work was failed tool calls, how long the session ran, and what it cost in
+  tokens. Verified against real session logs, not against a spec.
+- **A journey across sessions,** with totals and the direction of travel — whether a habit is
+  improving or slipping, compared between the earlier and more recent halves of your history.
+- 35 more tests, covering each wrong number the extractor was built to avoid.
+
+### Changed
+
+- **Extraction now happens the moment a session ends,** rather than later on demand. The previous
+  release only stored a pointer to each transcript, and Claude Code deletes those — a journey built
+  on pointers quietly loses its own history. Metrics now outlive the transcripts they came from.
+  This was the most serious open issue in the last release.
+- Store records carry a `metrics` object and move to schema 2. Older records remain readable and are
+  reported as thin history rather than as sessions that scored zero.
+
+### Fixed
+
+Four ways the numbers came out confidently wrong, each found by running the extractor over real
+session logs:
+
+- **Token counts were more than double the truth.** One reply from the agent is written to the log
+  as several lines, each repeating the same usage figures. Counting them separately reported 351,282
+  output tokens for a session that actually spent 154,341.
+- **Failed work was being scored as clean.** A failed command and a dropped connection are both
+  recorded in ways that the obvious check misses entirely, so a session with known failures came out
+  at 100% clean.
+- **The obvious fix for that invented failures instead.** Treating anything written to the error
+  stream as a failure flags ordinary commands that succeeded — every such case in these logs was a
+  harmless notice.
+- **Tool names could carry an account identifier.** Connections to outside services are named with an
+  id belonging to your account, which said nothing about how you build and would have been published.
+  It is now removed, while the readable names that are worth showing are kept.
+
+Two more, about what the numbers claim:
+
+- **A rate is no longer averaged across sessions.** One careless edit in a small session, beside a
+  hundred careful edits in a large one, is 99% careful — not 50%.
+- **A trend is no longer reported from too little history.** Below six sessions there is no trend,
+  and the reason is stated rather than a number being shown.
+
 ## [0.2.0] - 2026-08-07
 
 ### Added
