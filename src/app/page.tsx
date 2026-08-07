@@ -63,6 +63,9 @@ export default function Home() {
 
           <form onSubmit={handleImport} className="w-full max-w-md space-y-4">
             <div className="flex flex-col gap-2">
+              <label htmlFor="repoUrl" className="sr-only">
+                GitHub repository URL
+              </label>
               <input
                 id="repoUrl"
                 name="repoUrl"
