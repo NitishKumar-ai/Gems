@@ -13,15 +13,28 @@ test.describe('VibeCoder Portfolio Flow', () => {
     const repoInput = page.locator('input#repoUrl');
     await repoInput.fill('https://github.com/testuser/testrepo');
 
-    // 4. Submit the form
+    // 4. Hold the import response open so the loading state is observable.
+    // /api/import is a regex match, so it usually returns faster than an
+    // assertion can catch the button text — this test failed ~1 run in 3 before
+    // the delay was added.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/import', async (route) => {
+      await held;
+      await route.continue();
+    });
+
     const submitButton = page.locator('button[type="submit"]');
     await submitButton.click();
 
-    // 5. Verify the button shows loading state
+    // 5. Verify the button shows loading state and blocks a second submit
     await expect(submitButton).toContainText('Analyzing Vibes...');
+    await expect(submitButton).toBeDisabled();
+    release();
 
     // 6. Verify we get redirected to the portfolio page
-    // The mock data takes 1.5 seconds, so we wait for URL to change
     await page.waitForURL('/testuser/testrepo');
 
     // 7. Verify Portfolio Page Header
@@ -39,6 +52,32 @@ test.describe('VibeCoder Portfolio Flow', () => {
     // 10. Verify Model Tags are present
     await expect(page.locator('text=Built With')).toBeVisible();
     await expect(page.locator('text=GPT-4o').first()).toBeVisible();
+  });
+
+  // Regression: ISSUE-001 — every diff line rendered on the same row
+  // Found by /qa on 2026-08-07
+  // Report: .gstack/qa-reports/qa-report-localhost-2026-08-07.md
+  test('each diff line occupies its own row and does not scroll sideways', async ({ page }) => {
+    await page.goto('/testuser/testrepo');
+    await expect(page.locator('text=Live Vibe Replay')).toBeVisible();
+
+    const layout = await page.locator('pre').first().evaluate((pre) => {
+      const spans = Array.from(pre.querySelectorAll('span'));
+      const rows = new Set(spans.map((s) => Math.round(s.getBoundingClientRect().top)));
+      return {
+        lines: spans.length,
+        rows: rows.size,
+        scrollWidth: pre.scrollWidth,
+        clientWidth: pre.clientWidth,
+      };
+    });
+
+    // The first mock commit is a 4-line diff. Full-width inline-block spans laid
+    // them out side by side, so all 4 shared one row and the viewer needed ~4x its
+    // own width. One row per line, and no horizontal overflow.
+    expect(layout.lines).toBeGreaterThan(1);
+    expect(layout.rows).toBe(layout.lines);
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
   });
 
   test('the replay advances on play and restarts once the journey has finished', async ({ page }) => {
