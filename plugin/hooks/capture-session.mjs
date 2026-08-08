@@ -69,6 +69,22 @@ export function cursorSessionsDir(env = process.env) {
   return env.GEMS_CURSOR_SESSIONS || join(homedir(), '.cursor', 'sessions');
 }
 
+export function agySessionsDir(env = process.env) {
+  return env.GEMS_AGY_SESSIONS || join(homedir(), '.gemini', 'antigravity-cli', 'brain');
+}
+
+export function windsurfSessionsDir(env = process.env) {
+  return env.GEMS_WINDSURF_SESSIONS || join(homedir(), '.windsurf');
+}
+
+export function aiderSessionsDir(env = process.env) {
+  return env.GEMS_AIDER_SESSIONS || process.cwd();
+}
+
+export function copilotSessionsDir(env = process.env) {
+  return env.GEMS_COPILOT_SESSIONS || join(homedir(), '.copilot');
+}
+
 /**
  * Claude Code names each project directory after its absolute path with the
  * separators flattened: `/Volumes/NIT-SSD/Development/Gems` becomes
@@ -132,6 +148,13 @@ export function locateTranscript(sessionId, cwd, projectsDir) {
   // Also check if it's flat in the root directory (for Codex/Cursor)
   const flatPath = join(projectsDir, filename);
   if (isFile(flatPath)) return flatPath;
+
+  // Check Antigravity (agy) nested structure
+  const agyFull = join(projectsDir, sessionId, '.system_generated', 'logs', 'transcript_full.jsonl');
+  if (isFile(agyFull)) return agyFull;
+  
+  const agyTrunc = join(projectsDir, sessionId, '.system_generated', 'logs', 'transcript.jsonl');
+  if (isFile(agyTrunc)) return agyTrunc;
 
   return null;
 }
@@ -297,7 +320,11 @@ export async function capture({
   const sources = [
     { name: 'claude-code', dir: claudeProjectsDir(env) },
     { name: 'codex', dir: codexSessionsDir(env) },
-    { name: 'cursor', dir: cursorSessionsDir(env) }
+    { name: 'cursor', dir: cursorSessionsDir(env) },
+    { name: 'agy', dir: agySessionsDir(env) },
+    { name: 'windsurf', dir: windsurfSessionsDir(env) },
+    { name: 'aider', dir: aiderSessionsDir(env) },
+    { name: 'copilot', dir: copilotSessionsDir(env) }
   ];
   
   let transcriptPath = null;
@@ -340,7 +367,7 @@ export async function capture({
     // the 32 MB cap it is a fraction of the hook's 10s budget — and keeping the passes
     // separate is what lets `bytes` stay the single number the dedupe key is built on.
     try {
-      metrics = await extractTranscript(transcriptPath);
+      metrics = await extractTranscript(transcriptPath, detectedSource);
     } catch {
       // Extraction is the enhancement; the pointer record is the floor. A session that
       // cannot be parsed is still a session that happened.
@@ -362,7 +389,8 @@ export async function capture({
   return { captured: written, record };
 }
 
-const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+import { fileURLToPath } from 'node:url';
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
   readStdin()
     .then((raw) => capture({ raw }))

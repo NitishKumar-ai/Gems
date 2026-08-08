@@ -12,6 +12,12 @@
 
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
+import { normalizeClaudeCode } from './normalizers/claude-code.mjs';
+import { normalizeAgy } from './normalizers/agy.mjs';
+import { normalizeAider } from './normalizers/aider.mjs';
+import { normalizeWindsurf } from './normalizers/windsurf.mjs';
+import { normalizeCopilot } from './normalizers/copilot.mjs';
+
 
 export const METRICS_SCHEMA_VERSION = 1;
 
@@ -356,8 +362,19 @@ function absorbFailures(acc, record) {
   else if (apiFailed) acc.apiErrors += 1;
 }
 
-export function absorbRecord(acc, record, index) {
+export function absorbRecord(acc, record, index, source) {
   if (!record || typeof record !== 'object') return;
+
+  // Apply source-specific normalizers
+  let normalized = record;
+  if (source === 'claude-code') normalized = normalizeClaudeCode(record, index);
+  else if (source === 'agy') normalized = normalizeAgy(record, index);
+  else if (source === 'aider') normalized = normalizeAider(record, index);
+  else if (source === 'windsurf') normalized = normalizeWindsurf(record, index);
+  else if (source === 'copilot') normalized = normalizeCopilot(record, index);
+
+  if (!normalized) return;
+  record = normalized;
 
   acc.records += 1;
   noteTimestamp(acc, record);
@@ -458,7 +475,7 @@ export function summarize(acc) {
  *
  * @returns {Promise<SessionMetrics | null>}
  */
-export function extractTranscript(path) {
+export function extractTranscript(path, source = 'claude-code') {
   return new Promise((resolve) => {
     const acc = newAccumulator();
     let index = 0;
@@ -486,7 +503,7 @@ export function extractTranscript(path) {
       if (line.length === 0) return;
       index += 1;
       try {
-        absorbRecord(acc, JSON.parse(line), index);
+        absorbRecord(acc, JSON.parse(line), index, source);
       } catch {
         // A transcript is appended to while a session runs, so the last line can be a
         // partial write. One unreadable line is not a reason to lose the session.
