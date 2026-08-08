@@ -93,4 +93,53 @@ test.describe('VibeCoder Portfolio Flow', () => {
     await locked.click();
     await expect(page.getByText('Long Haul')).toBeVisible();
   });
+
+  // The rubric section, below Achievements — reversed from its original above-the-fold
+  // placement during /plan-eng-review's outside-voice pass. All four dimensions clear their
+  // floor on this fixture (16 sessions, 10-session trailing window, MIN_SESSIONS_FOR_TREND=6),
+  // so this is the fully-unlocked state; the locked/progress state is covered at the unit
+  // level in plugin/lib/rubric.test.ts, not duplicated here.
+  test('the rubric renders scored dimensions with the evidence that produced them', async ({ page }) => {
+    await page.goto('/testuser/testrepo');
+
+    await expect(page.getByRole('heading', { name: 'Builder Rubric' })).toBeVisible();
+    await expect(page.getByText('4 of 4 scored')).toBeVisible();
+
+    // Evidence Discipline: 152/192 edits informed across the fixture (56 + 96, split 8/8
+    // sessions at 7/12 then 12/12) — 79.2%, which lands in the 8-10 band. `.first()` because
+    // the name also appears inside Learning Velocity's description text below.
+    // `.first()` throughout: the same evidence strings are duplicated inside the (collapsed
+    // but still DOM-present) evidence trail below, and Evidence Discipline's own name is
+    // echoed inside Learning Velocity's description text.
+    await expect(page.getByText('Evidence Discipline').first()).toBeVisible();
+    await expect(page.getByText('9.9')).toBeVisible();
+    await expect(page.getByText('152/192 edits informed (79.2%)').first()).toBeVisible();
+
+    // Execution Hygiene: the trailing 10 sessions all have zero tool failures, same as the
+    // full fixture — 0% failed, the top of its band.
+    await expect(page.getByText('600 tool calls over the trailing 10 sessions, 0.0% failed').first()).toBeVisible();
+
+    // Prompt Craft: steering is identical (2 interrupts / 4 prompts) in every session, so the
+    // recent-vs-older delta is exactly zero — the midpoint of its band, not a "locked" state.
+    await expect(page.getByText('steering 50.0% → 50.0%').first()).toBeVisible();
+
+    // Learning Velocity: Evidence Discipline improved (7/12 -> 12/12), Execution Hygiene and
+    // Prompt Craft are both flat (delta below tolerance) — 2 of 3 flat is the majority.
+    await expect(page.getByText('Holding steady')).toBeVisible();
+    await expect(page.getByText(/improving on Evidence Discipline.*flat on Execution Hygiene, Prompt Craft/)).toBeVisible();
+
+    // Bands are explicitly provisional until real-data calibration lands (TODOS.md, P2).
+    await expect(page.getByText('○ provisional').first()).toBeVisible();
+    await expect(page.getByText(/Bands as of/)).toBeVisible();
+
+    // The evidence trail is a single shared disclosure, collapsed by default — matches
+    // Achievements' "N still locked" pattern, not a per-card expansion. Native <details>
+    // content stays in the DOM while collapsed (just not painted), so this checks visibility
+    // rather than absence before expanding.
+    const trail = page.getByText('View evidence trail');
+    await expect(trail).toBeVisible();
+    await expect(page.getByText(/evidence_before_edit: 152\/192/)).not.toBeVisible();
+    await trail.click();
+    await expect(page.getByText(/evidence_before_edit: 152\/192/)).toBeVisible();
+  });
 });

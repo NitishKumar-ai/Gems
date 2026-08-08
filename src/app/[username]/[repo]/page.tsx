@@ -1,6 +1,7 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
 import Achievements from '@/components/Achievements';
+import RubricCard from '@/components/RubricCard';
 import prisma from '@/lib/prisma';
 
 // Revalidate this page every 60 seconds
@@ -139,6 +140,11 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
         </div>
 
         <Achievements data={metrics.achievements ?? null} />
+
+        {/* Below Achievements, not above — reversed from the original above-the-fold design
+            during /plan-eng-review's outside-voice pass, to protect the working evolution/
+            achievements story from a mostly-locked, provisional section on a new profile. */}
+        <RubricCard data={metrics.rubric ?? null} />
       </div>
     </main>
   );
