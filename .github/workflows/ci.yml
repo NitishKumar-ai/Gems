@@ -50,6 +50,8 @@ jobs:
 
       - run: bun run test:plugin
 
+      - run: bun run test:unit
+
       - run: bun run build
 
       - name: Install Playwright browsers

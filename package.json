@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:e2e": "playwright test",
     "test:plugin": "bun test plugin/",
+    "test:unit": "bun test src/",
     "typecheck:plugin": "tsc -p plugin/tsconfig.json --noEmit",
     "postinstall": "prisma generate"
   },
