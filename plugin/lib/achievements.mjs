@@ -120,7 +120,7 @@ function isoWeek(iso) {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
-function pct(value) {
+export function pct(value) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
@@ -136,7 +136,7 @@ function rate(numerator, denominator) {
  * `ratio` is the separate 0–1 completion figure, because "how close is this" and "what
  * should it say" stop agreeing the moment a metric is one where lower is better.
  */
-function step(value, target, label, { inverted = false } = {}) {
+export function step(value, target, label, { inverted = false } = {}) {
   const ratio = inverted
     ? (value <= target ? 1 : Math.max(0, Math.min(1, target / value)))
     : (target <= 0 ? 1 : Math.max(0, Math.min(1, value / target)));
