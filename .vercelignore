@@ -1,0 +1,7 @@
+# Local secrets — never upload these to Vercel. The Vercel CLI does not automatically
+# respect .gitignore when deploying from a local directory (`vercel --prod`), so this is
+# required, not redundant with .gitignore. Production env vars are set via `vercel env add`
+# / the dashboard instead — see the "Deployment" section in README.md.
+.env
+.env.local
+.env.*.local
