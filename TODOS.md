@@ -61,23 +61,19 @@ blocking, since the "provisional" UI marker is the accepted interim state.
 function independently (plan-eng-review Issue 7b), guarded only by a cross-reference comment and
 shared test fixtures — not a single source of truth. *Consolidated into a shared package at the root `shared/rubric-bands.mjs` and `shared/rubric-bands.d.mts`, which both the plugin and the app import.*
 
-## Infrastructure
+## Completed
 
-### Not actually deployed
+### ~~Not actually deployed~~
 
 **Priority:** P1
+**Completed:** v0.8.0 (2026-08-08)
 
-Everything Phase 6 built is deployable and nothing is deployed. `GEMS_HOST` still defaults to
-`http://localhost:3000` in [gems.mjs](plugin/commands/gems.mjs), and flipping it is pointless until
-there is an origin to flip it to. Remaining, all of it needing credentials rather than code:
-
-- Provision Postgres (Neon via the Vercel Marketplace) and deploy the app.
-- Create a production GitHub OAuth app with the deployed callback URL, and set `AUTH_SECRET`,
-  `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`.
-- Run `npx prisma migrate deploy` against the deployed database.
-- Point the `GEMS_HOST` default at the deployed origin.
-
-## Completed
+Live at [gems.inmodel.in](https://gems.inmodel.in) — Vercel (project `gems`) + Neon Postgres via
+the Vercel Marketplace integration, a production GitHub OAuth app, `AUTH_SECRET`/`AUTH_GITHUB_ID`/
+`AUTH_GITHUB_SECRET` set as production env vars, `prisma migrate deploy` applied against the live
+database, and [gems.mjs](plugin/commands/gems.mjs)'s `GEMS_HOST` default pointed at the deployed
+origin. A real GitHub login was verified end-to-end against production: `User`, `Account`, and
+`Session` rows landed correctly, and the `githubLogin` backfill ran as expected.
 
 ### Locked-state progress bars have no ARIA progress attributes
 
