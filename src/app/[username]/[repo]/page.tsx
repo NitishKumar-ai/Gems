@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { cache } from 'react';
+import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Achievements from '@/components/Achievements';
 import RubricCard from '@/components/RubricCard';
 import LiveVibeReplay from '@/components/LiveVibeReplay';
+import BuilderReveal from '@/components/BuilderReveal';
 import prisma from '@/lib/prisma';
 
 // Revalidate this page every 60 seconds
 export const revalidate = 60;
 
-async function getRepoData(username: string, repo: string) {
+// Wrapped in React.cache so generateMetadata and the page body share one Prisma query per request.
+const getRepoData = cache(async (username: string, repo: string) => {
   const journey = await prisma.journey.findUnique({
     where: {
       username_repo: {
@@ -23,8 +26,32 @@ async function getRepoData(username: string, repo: string) {
   }
 
   const metrics = JSON.parse(journey.metrics);
+  const analysis = journey.analysis ? JSON.parse(journey.analysis) : null;
 
-  return { metrics, modelsUsed: Object.keys(metrics.totals?.models || {}) };
+  return { metrics, analysis, modelsUsed: Object.keys(metrics.totals?.models || {}) };
+});
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ username: string; repo: string }>;
+}): Promise<Metadata> {
+  const { username, repo } = await params;
+  const data = await getRepoData(username, repo);
+  if (!data) return {};
+
+  const { metrics, analysis } = data;
+  const title = analysis?.headline
+    ? `${username}/${repo} — ${analysis.headline}`
+    : `${username}/${repo} — Builder Journey`;
+  const description = analysis?.summary ?? `${metrics.totals?.sessions ?? 0} sessions, tracked with Gems.`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: 'profile', url: `/${username}/${repo}` },
+    twitter: { card: 'summary_large_image', title, description },
+  };
 }
 
 export default async function PortfolioPage({ params }: { params: Promise<{ username: string, repo: string }> }) {
@@ -35,7 +62,7 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
     notFound();
   }
 
-  const { metrics, modelsUsed } = data;
+  const { metrics, analysis, modelsUsed } = data;
   const rates = metrics.totals?.rates || {};
 
   // A rate is deliberately `null` when there was no denominator to divide by — a session with no
@@ -71,6 +98,8 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
   return (
     <main className="min-h-screen bg-black text-zinc-100 font-mono p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-12 mt-8">
+        <BuilderReveal data={analysis} metrics={metrics} />
+
         {/* Header */}
         <header className="flex flex-col md:flex-row md:items-end justify-between border-b border-zinc-800 pb-8 space-y-4 md:space-y-0">
           <div>
