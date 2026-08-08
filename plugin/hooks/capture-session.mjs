@@ -61,6 +61,14 @@ export function claudeProjectsDir(env = process.env) {
   return env.GEMS_CLAUDE_PROJECTS || join(env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'projects');
 }
 
+export function codexSessionsDir(env = process.env) {
+  return env.GEMS_CODEX_SESSIONS || join(homedir(), '.codex', 'sessions');
+}
+
+export function cursorSessionsDir(env = process.env) {
+  return env.GEMS_CURSOR_SESSIONS || join(homedir(), '.cursor', 'sessions');
+}
+
 /**
  * Claude Code names each project directory after its absolute path with the
  * separators flattened: `/Volumes/NIT-SSD/Development/Gems` becomes
@@ -121,6 +129,10 @@ export function locateTranscript(sessionId, cwd, projectsDir) {
     if (isFile(candidate)) return candidate;
   }
 
+  // Also check if it's flat in the root directory (for Codex/Cursor)
+  const flatPath = join(projectsDir, filename);
+  if (isFile(flatPath)) return flatPath;
+
   return null;
 }
 
@@ -169,11 +181,12 @@ export function parseHookInput(raw) {
  * @param {number | null} args.lines
  * @param {string} args.capturedAt
  * @param {import('../lib/extract.mjs').SessionMetrics | null} [args.metrics]
+ * @param {string} [args.source]
  */
-export function buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capturedAt, metrics = null }) {
+export function buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capturedAt, metrics = null, source = 'claude-code' }) {
   return {
     schema: SCHEMA_VERSION,
-    source: 'claude-code',
+    source,
     session_id: sessionId,
     cwd: cwd ?? null,
     project_slug: projectSlug(cwd),
@@ -280,7 +293,23 @@ export async function capture({
   }
 
   const cwd = typeof input.cwd === 'string' ? input.cwd : null;
-  const transcriptPath = locateTranscript(sessionId, cwd, claudeProjectsDir(env));
+  
+  const sources = [
+    { name: 'claude-code', dir: claudeProjectsDir(env) },
+    { name: 'codex', dir: codexSessionsDir(env) },
+    { name: 'cursor', dir: cursorSessionsDir(env) }
+  ];
+  
+  let transcriptPath = null;
+  let detectedSource = null;
+  
+  for (const s of sources) {
+    transcriptPath = locateTranscript(sessionId, cwd, s.dir);
+    if (transcriptPath) {
+      detectedSource = s.name;
+      break;
+    }
+  }
 
   if (!transcriptPath) {
     diagnose(home, `skipped: no transcript found for ${sessionId}`);
@@ -323,7 +352,7 @@ export async function capture({
     diagnose(home, `transcript over cap for ${sessionId}; stored pointer only`);
   }
 
-  const record = buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capturedAt: now(), metrics });
+  const record = buildRecord({ sessionId, cwd, transcriptPath, bytes, lines, capturedAt: now(), metrics, source: detectedSource });
   const written = appendRecord(join(home, 'sessions.jsonl'), record);
 
   if (!written) {

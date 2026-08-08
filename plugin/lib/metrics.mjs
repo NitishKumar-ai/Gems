@@ -57,6 +57,7 @@ export function aggregate(sessions) {
     verify_calls: 0,
     duration_ms: 0,
     tokens: { input: 0, output: 0, cache_read: 0, cache_creation: 0 },
+    replay_events: [],
   };
 
   for (const session of sessions) {
@@ -90,6 +91,18 @@ export function aggregate(sessions) {
 
     for (const key of Object.keys(totals.tokens)) {
       totals.tokens[key] += m.tokens?.[key] ?? 0;
+    }
+
+    if (Array.isArray(m.replay_events)) {
+      // Add the last 50 events from the session to avoid massive payloads,
+      // or just add them all if small. But it's better to just take the events
+      // from the most recent sessions if we want a playback. Wait, concatenating
+      // all of them across all sessions could make the JSON huge!
+      // Let's just keep the last 50 globally.
+      totals.replay_events.push(...m.replay_events);
+      if (totals.replay_events.length > 50) {
+        totals.replay_events = totals.replay_events.slice(-50);
+      }
     }
   }
 

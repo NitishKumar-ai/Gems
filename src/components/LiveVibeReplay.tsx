@@ -2,19 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 
-export type CommitDiff = {
+export type ToolEvent = {
   id: string;
-  message: string;
+  name: string;
   model: string;
-  diffText: string;
   timestamp: string;
 };
 
 interface LiveVibeReplayProps {
-  commits: CommitDiff[];
+  events: ToolEvent[];
 }
 
-export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
+export default function LiveVibeReplay({ events }: LiveVibeReplayProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -23,7 +22,7 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
 
     // 2.5 seconds per commit for the "vibe"
     const timer = setTimeout(() => {
-      if (currentIndex >= commits.length - 1) {
+      if (currentIndex >= events.length - 1) {
         setIsPlaying(false);
       } else {
         setCurrentIndex(currentIndex + 1);
@@ -31,17 +30,17 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [isPlaying, currentIndex, commits.length]);
+  }, [isPlaying, currentIndex, events.length]);
 
   const togglePlay = () => {
-    // Replaying after the journey has finished restarts from the first commit
-    if (!isPlaying && currentIndex >= commits.length - 1) {
+    // Replaying after the journey has finished restarts from the first event
+    if (!isPlaying && currentIndex >= events.length - 1) {
       setCurrentIndex(0);
     }
     setIsPlaying(!isPlaying);
   };
   
-  if (!commits || commits.length === 0) {
+  if (!events || events.length === 0) {
     return (
       <div className="w-full h-64 flex items-center justify-center border border-zinc-800 rounded-xl bg-black/40 backdrop-blur-md">
         <p className="text-zinc-500 font-mono text-sm">Waiting for vibe coding data...</p>
@@ -49,7 +48,7 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
     );
   }
 
-  const currentCommit = commits[currentIndex];
+  const currentEvent = events[currentIndex];
 
   return (
     <div className="w-full flex flex-col border border-zinc-800 rounded-xl overflow-hidden bg-black/40 backdrop-blur-md shadow-2xl transition-all duration-300">
@@ -66,7 +65,7 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
         
         <div className="flex items-center space-x-4">
           <span className="px-2.5 py-1 text-[10px] font-mono bg-cyan-900/30 text-cyan-400 border border-cyan-800/50 rounded-full">
-            {currentCommit.model}
+            {currentEvent.model}
           </span>
           <button 
             onClick={togglePlay}
@@ -88,45 +87,34 @@ export default function LiveVibeReplay({ commits }: LiveVibeReplayProps) {
         </div>
       </div>
 
-      {/* Commit Info */}
+      {/* Event Info */}
       <div className="px-4 py-3 bg-zinc-900/40 border-b border-zinc-800 flex justify-between items-center text-sm">
         <div className="font-mono text-zinc-300">
-          <span className="text-purple-400">{currentCommit.id.substring(0, 7)}</span> 
+          <span className="text-purple-400">{currentEvent.id.substring(0, 7)}</span> 
           <span className="mx-2 text-zinc-600">|</span>
-          <span className="text-zinc-200">{currentCommit.message}</span>
+          <span className="text-zinc-200">Executing <span className="text-cyan-400">{currentEvent.name}</span></span>
         </div>
         <div className="text-zinc-500 font-mono text-xs">
-          {currentIndex + 1} / {commits.length}
+          {currentIndex + 1} / {events.length}
         </div>
       </div>
 
-      {/* Code Viewer */}
-      <div className="relative w-full min-h-[180px] max-h-[400px] overflow-auto bg-[#0d1117] p-4 font-mono text-sm leading-relaxed">
-        <pre className="text-zinc-300">
-          {currentCommit.diffText.split('\n').map((line, i) => {
-            // `block`, not `inline-block`: inline-block boxes at full width lay out
-            // side by side, which put every line of the diff on one row and made the
-            // viewer scroll horizontally instead of reading top to bottom.
-            let lineClass = "block px-2 py-0.5 transition-colors duration-300 ease-in-out ";
-            if (line.startsWith('+')) lineClass += "text-green-400 bg-green-900/20";
-            else if (line.startsWith('-')) lineClass += "text-red-400 bg-red-900/20";
-            else if (line.startsWith('@@')) lineClass += "text-blue-400 opacity-80";
-            else lineClass += "opacity-80";
-
-            return (
-              <span key={i} className={lineClass}>
-                {line}
-              </span>
-            );
-          })}
-        </pre>
+      {/* Code Viewer (Mocked Tool Execution) */}
+      <div className="relative w-full min-h-[180px] max-h-[400px] overflow-auto bg-[#0d1117] p-6 font-mono text-sm leading-relaxed flex flex-col items-center justify-center">
+        <div className="text-zinc-500 mb-4 animate-pulse">Running tool</div>
+        <div className="px-4 py-2 bg-zinc-800 rounded-md text-zinc-300 border border-zinc-700 shadow-inner">
+          {currentEvent.name}
+        </div>
+        <div className="mt-6 text-xs text-zinc-600">
+          Timestamp: {new Date(currentEvent.timestamp).toLocaleTimeString()}
+        </div>
       </div>
       
       {/* Progress Bar */}
       <div className="w-full h-1 bg-zinc-800">
         <div 
           className="h-full bg-cyan-500 transition-all duration-500 ease-out"
-          style={{ width: `${((currentIndex + 1) / commits.length) * 100}%` }}
+          style={{ width: `${((currentIndex + 1) / events.length) * 100}%` }}
         />
       </div>
     </div>

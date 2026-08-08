@@ -173,6 +173,7 @@ function newAccumulator() {
     readFiles: new Set(),
     globalEvidence: false,
     pendingWrites: new Map(),
+    eventSequence: [],
 
     assistantTurns: 0,
     syntheticTurns: 0,
@@ -245,13 +246,22 @@ function absorbAssistant(acc, record, index) {
     if (block?.type !== 'tool_use') continue;
     acc.toolCalls += 1;
     bump(acc.tools, normalizeToolName(block.name));
-    absorbToolUse(acc, block);
+    absorbToolUse(acc, block, model, record.timestamp);
   }
 }
 
-function absorbToolUse(acc, block) {
-  const name = block.name;
+function absorbToolUse(acc, block, model, timestamp) {
+  const name = normalizeToolName(block.name);
   const filePath = block.input?.file_path;
+  
+  if (model && timestamp) {
+    acc.eventSequence.push({
+      id: block.id || Math.random().toString(36).substring(7),
+      name,
+      model,
+      timestamp
+    });
+  }
 
   if (VERIFY_TOOLS.has(name)) {
     acc.verifyCalls += 1;
@@ -430,6 +440,7 @@ export function summarize(acc) {
       by_signal: sortedCounts(acc.failureSignals),
     },
 
+    replay_events: acc.eventSequence,
     sidechain_records: acc.sidechainRecords,
     unparsable_lines: acc.unparsableLines,
   };

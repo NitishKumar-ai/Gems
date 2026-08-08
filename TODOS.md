@@ -37,14 +37,9 @@ Same bar as the replay: it goes back on the profile when it has real data behind
 
 ## Plugin
 
-### Achievements only read Claude Code sessions
-
+### ~~Achievements only read Claude Code sessions~~
 **Priority:** P3
-
-[achievements.mjs](plugin/lib/achievements.mjs) evaluates the store the capture hook writes, and
-that hook only understands `~/.claude/projects/`. Codex (`~/.codex/sessions/`) and Cursor have
-equivalent transcripts. Nothing in the achievement rules is Claude-specific, so this is a capture
-problem rather than an evaluation one.
+[achievements.mjs](plugin/lib/achievements.mjs) evaluates the store the capture hook writes, and that hook only understands `~/.claude/projects/`. Codex (`~/.codex/sessions/`) and Cursor have equivalent transcripts. Nothing in the achievement rules is Claude-specific, so this is a capture problem rather than an evaluation one. *Implemented capture from Codex and Cursor transcripts.*
 
 ### Rubric bands need real-data calibration
 
