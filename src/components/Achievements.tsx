@@ -78,7 +78,7 @@ function LockedBadge({ badge }: { badge: Achievement }) {
 
       {progress && (
         <div className="space-y-1.5">
-          <div className="h-1 bg-zinc-900 rounded-full overflow-hidden" role="presentation">
+          <div className="h-1 bg-zinc-900 rounded-full overflow-hidden" role="progressbar" aria-valuenow={progress.value} aria-valuemin={0} aria-valuemax={progress.target}>
             <div className="h-full bg-zinc-600 rounded-full" style={{ width: `${filled}%` }} />
           </div>
           <p className="text-xs text-zinc-500 font-mono">

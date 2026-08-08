@@ -46,6 +46,33 @@ that hook only understands `~/.claude/projects/`. Codex (`~/.codex/sessions/`) a
 equivalent transcripts. Nothing in the achievement rules is Claude-specific, so this is a capture
 problem rather than an evaluation one.
 
+### Rubric bands need real-data calibration
+
+**Priority:** P2
+
+The rubric feature (see the office-hours design doc,
+`Nitish-main-design-20260808-094411.md`) ships its default band thresholds as explicitly
+"provisional" — they come from an LLM cold-read during the design session, not from any real
+distribution of builder journeys. Replace them once enough published profiles exist to calibrate
+against. The shared test fixtures written for the boundary-value tests (plan-eng-review Issue 8)
+double as the starting dataset. Depends on enough real, varied journeys existing — not currently
+blocking, since the "provisional" UI marker is the accepted interim state.
+
+### Duplicated rubric interpolation logic (plugin + app)
+
+**Priority:** P2 (escalated from P3 — the outside-voice pass of `/plan-eng-review`
+correctly pointed out threshold behavior here is user-visible, not just code
+cleanliness: a builder could see two different scores for the same underlying data
+between the CLI preview and the published page if the two implementations drift.)
+
+`plugin/lib/rubric.mjs` and `src/lib/rubric.ts` each implement the same band-interpolation
+function independently (plan-eng-review Issue 7b), guarded only by a cross-reference comment and
+shared test fixtures — not a single source of truth. This was a deliberate call: nothing in this
+codebase currently imports plugin `.mjs` modules from `src/` (the plugin has its own, separately
+type-checked `tsconfig.json`), and forcing a cross-project import felt like more blast radius than
+this feature justified. Revisit if the app/plugin TypeScript boundary ever changes — a shared
+package or monorepo tooling would make this genuinely one implementation instead of two.
+
 ## Infrastructure
 
 ### Not actually deployed
@@ -63,6 +90,17 @@ there is an origin to flip it to. Remaining, all of it needing credentials rathe
 - Point the `GEMS_HOST` default at the deployed origin.
 
 ## Completed
+
+### Locked-state progress bars have no ARIA progress attributes
+
+**Priority:** P3
+**Completed:** v0.8.0 (2026-08-08)
+
+Both `LockedBadge` (`src/components/Achievements.tsx`) and the rubric's `LockedCard`
+(`src/components/RubricCard.tsx`) render their progress bar with
+`role="progressbar"` and `aria-valuenow`/`aria-valuemin`/`aria-valuemax` now, fixed
+together in one change as planned rather than making one more accessible than the
+other.
 
 ### Anyone could publish under anyone's handle
 
