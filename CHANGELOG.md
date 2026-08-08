@@ -3,6 +3,22 @@
 All notable changes to Gems are recorded here. This project follows
 [Semantic Versioning](https://semver.org/) using the version in `package.json`.
 
+## [0.9.0] - 2026-08-08
+
+### Added
+
+- **Anthropic-powered Builder Report.** Replaced the placeholder "Gem's Roast" with a Spotify Wrapped-style animated reveal powered by the Anthropic SDK (`claude-opus-5`). The report summarizes your builder archetype, highlights your best rubric dimension, and offers a concrete growth edge based on real session data.
+- **Analysis Storage.** The database schema now includes an `analysis` column on the `Journey` model to store AI-generated reports, preventing redundant LLM calls on page views.
+
+### Changed
+
+- **Strict Data Projection.** `analyzeJourney` now strictly filters the `metrics` object to an `AnalysisInput` shape before sending it to the model. This guarantees that raw session content (like `replay_events`) is never sent to the LLM, and the model only sees aggregate counts, rates, and evidence strings.
+- **Resilient Publish Workflow.** The LLM analysis step in `/api/publish` is best-effort. If the `ANTHROPIC_API_KEY` is missing, or the model call fails, the journey is still published successfully without the analysis component.
+
+### Removed
+
+- **Unauthenticated Webhook.** Removed the `/api/webhook` QStash route which was an unauthenticated placeholder for the now-implemented LLM processing.
+
 ## [0.8.0] - 2026-08-08
 
 ### Added

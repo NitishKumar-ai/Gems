@@ -24,16 +24,7 @@ Two things have to happen together:
 
 Until then the replay is dead code that reads as a shipped feature.
 
-### Give the roast something real to say
 
-**Priority:** P3
-
-[GemRoast](src/components/GemRoast.tsx) is unmounted as of v0.7.0 — it was rendering canned text and
-an invented model name on every published profile. Bringing it back means wiring
-[the roast service](src/services/llm.ts) to a real model call over the published metrics, caching
-the result on the `Journey` row so a page view is not a model call, and deciding who pays for it.
-
-Same bar as the replay: it goes back on the profile when it has real data behind it, not before.
 
 ## Plugin
 
@@ -62,6 +53,14 @@ function independently (plan-eng-review Issue 7b), guarded only by a cross-refer
 shared test fixtures — not a single source of truth. *Consolidated into a shared package at the root `shared/rubric-bands.mjs` and `shared/rubric-bands.d.mts`, which both the plugin and the app import.*
 
 ## Completed
+
+### ~~Give the roast something real to say~~
+
+**Priority:** P3
+**Completed:** v0.9.0 (2026-08-08)
+
+The placeholder `GemRoast` component was replaced by a real, Anthropic-powered `BuilderReveal` component. The `analyzeJourney` function now calls `claude-opus-5` during publish, strictly filtering the metrics to avoid exposing raw session data, and the result is cached in the new `Journey.analysis` column in Postgres.
+
 
 ### ~~Not actually deployed~~
 
