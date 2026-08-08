@@ -4,15 +4,34 @@ import { homedir } from 'node:os';
 import { readStore, buildJourney } from '../lib/journey.mjs';
 import https from 'node:https';
 import http from 'node:http';
+import fs from 'node:fs';
 
 const args = process.argv.slice(2);
 const isPublish = args.includes('publish') || args.includes('--publish');
+const isLogin = args[0] === 'login';
 
 const home = process.env.GEMS_HOME || join(homedir(), '.gems');
 const storePath = join(home, 'sessions.jsonl');
+const configPath = join(home, 'config.json');
+
+function getConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  } catch (err) {
+    return {};
+  }
+}
+
+function saveConfig(config) {
+  if (!fs.existsSync(home)) {
+    fs.mkdirSync(home, { recursive: true, mode: 0o700 });
+  }
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
+}
 
 async function publishJourney(journey) {
-  const apiKey = process.env.GEMS_API_KEY;
+  const config = getConfig();
+  const apiKey = process.env.GEMS_API_KEY || config.GEMS_API_KEY;
   if (!apiKey) {
     console.error('Error: GEMS_API_KEY environment variable is required to publish.');
     process.exit(1);
@@ -91,6 +110,19 @@ try {
   
   if (journey.totals.sessions === 0) {
     console.log('No sessions captured yet. Start a session in Claude Code and exit to see your stats!');
+    process.exit(0);
+  }
+
+  if (isLogin) {
+    const apiKey = args[1];
+    if (!apiKey) {
+      console.error('Error: Please provide an API key. Usage: /gems login <API_KEY>');
+      process.exit(1);
+    }
+    const config = getConfig();
+    config.GEMS_API_KEY = apiKey;
+    saveConfig(config);
+    console.log('✅ API key saved successfully!');
     process.exit(0);
   }
 

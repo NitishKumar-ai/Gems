@@ -1,6 +1,6 @@
 ---
 description: "View your builder journey — sessions, rates, evolution and achievements"
-argument-hint: "[publish] [--username HANDLE]"
+argument-hint: "[publish | login <API_KEY>] [--username HANDLE]"
 allowed-tools: ["Bash(node \"${CLAUDE_PLUGIN_ROOT}/commands/gems.mjs\":*)"]
 ---
 
@@ -27,3 +27,4 @@ If `publish` was requested and it failed:
 - **403** — they asked to publish under a handle that is not theirs. The error names the handle
   the API key actually owns; publishing without `--username` uses it automatically.
 - **401** — `GEMS_API_KEY` is missing or stale. It is shown on `/dashboard`.
+  Tell the user they can set it via `/gems login <API_KEY>`.

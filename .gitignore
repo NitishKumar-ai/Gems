@@ -52,3 +52,11 @@ test-results/
 *.db
 *.db-journal
 tests/e2e/.tmp/
+
+# Local scratch scripts and submission assets (contain local dev keys)
+/publish.js
+/seed.js
+/seed2.js
+/output.html
+/payload.json
+/.devfolio-assets/
