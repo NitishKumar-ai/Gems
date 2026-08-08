@@ -65,6 +65,11 @@ export default defineConfig({
     // own database rather than the seeded fixture, and the specs would fail for a reason that
     // has nothing to do with the code.
     reuseExistingServer: false,
-    env: { DATABASE_URL: TEST_DATABASE_URL },
+    env: {
+      DATABASE_URL: TEST_DATABASE_URL,
+      // Point the landing CTA at the seeded fixture rather than the production profile, so the
+      // spec asserts against a journey global-setup.ts controls.
+      NEXT_PUBLIC_GEMS_DEMO_PROFILE: '/testuser/testrepo',
+    },
   },
 });

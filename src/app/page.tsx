@@ -1,145 +1,25 @@
-'use client';
-
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { FinalCta } from '@/components/landing/FinalCta';
+import { HowItWorks } from '@/components/landing/HowItWorks';
+import { LandingFooter } from '@/components/landing/LandingFooter';
+import { LandingHero } from '@/components/landing/LandingHero';
+import { LandingNav } from '@/components/landing/LandingNav';
+import { MetricsExplainer } from '@/components/landing/MetricsExplainer';
+import { PrivacyBlock } from '@/components/landing/PrivacyBlock';
+import { ProblemContrast } from '@/components/landing/ProblemContrast';
+import { PullQuoteDivider } from '@/components/landing/PullQuoteDivider';
 
 export default function Home() {
-  const [repoUrl, setRepoUrl] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const router = useRouter();
-
-  const handleImport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const res = await fetch('/api/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repoUrl }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to import repository');
-      }
-
-      router.push(`/${data.data.owner}/${data.data.repo}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import repository');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <main className="flex min-h-screen flex-col font-sans bg-canvas text-ink">
-      {/* Top Navbar */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 bg-canvas border-b border-hairline-soft">
-        <div className="flex items-center gap-2">
-          <span className="font-display font-bold text-xl tracking-tight">VibeCoder_</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">Dashboard</Link>
-          <button className="bg-ink text-on-primary font-medium text-sm px-5 py-2.5 rounded-md hover:bg-ink-tint transition-colors">
-            Try Studio
-          </button>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative w-full flex flex-col lg:flex-row min-h-[70vh] bg-canvas">
-        {/* Left: Text */}
-        <div className="flex-1 flex flex-col justify-center px-8 py-16 lg:px-24">
-          <h1 className="font-display text-5xl lg:text-7xl leading-[1.05] tracking-tight text-ink mb-6 max-w-2xl">
-            Vibe Coding.<br />In your hands.
-          </h1>
-          <p className="text-lg text-ink-tint mb-10 max-w-xl leading-relaxed">
-            Drop your AI-generated GitHub repo to create a dynamic portfolio and analyze the human-AI collaborative journey.
-          </p>
-
-          <form onSubmit={handleImport} className="w-full max-w-md space-y-4">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="repoUrl" className="sr-only">
-                GitHub repository URL
-              </label>
-              <input
-                id="repoUrl"
-                name="repoUrl"
-                type="text"
-                value={repoUrl}
-                onChange={(e) => setRepoUrl(e.target.value)}
-                placeholder="https://github.com/username/repo"
-                className="w-full bg-canvas text-ink border border-hairline-strong rounded-md px-4 py-3 h-11 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-base"
-                required
-              />
-            </div>
-            {error && (
-              <div className="text-red-600 text-sm py-1 font-medium">
-                {error}
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-primary hover:bg-primary-deep text-on-primary font-medium px-5 py-3 rounded-md transition-colors flex justify-center items-center h-11 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Analyzing Vibes...' : 'Generate Portfolio'}
-            </button>
-          </form>
-        </div>
-
-        {/* Right: Photographic Mountain Sunset */}
-        <div className="flex-1 relative hidden lg:block overflow-hidden">
-          {/* A pure CSS sunset mountain gradient for the demo, or an actual image */}
-          <div className="absolute inset-0 bg-gradient-to-br from-sunshine-500 via-primary to-primary-deep"></div>
-          {/* Subtle overlay to simulate landscape */}
-          <div className="absolute bottom-0 w-full h-1/2 bg-gradient-to-t from-ink/20 to-transparent"></div>
-        </div>
-      </section>
-
-      {/* Feature / Form Section */}
-      <section className="w-full px-8 lg:px-24 py-24 bg-surface flex justify-center">
-        <div className="bg-cream rounded-lg p-10 lg:p-12 border border-beige-deep max-w-3xl w-full text-center">
-          <h2 className="font-display text-4xl mb-6 text-ink">The next chapter of AI is yours.</h2>
-          <p className="text-base text-ink-tint mb-8 max-w-xl mx-auto">
-            Experience the workflow of the future. See exactly how much code was generated by Mistral, Gemini, or Claude, and how much was written by you.
-          </p>
-          <button className="bg-canvas text-ink font-medium border border-beige-deep px-6 py-3 rounded-md hover:bg-gray-50 transition-colors">
-            Explore Documentation
-          </button>
-        </div>
-      </section>
-
-      <div className="flex-grow"></div>
-
-      {/* Mistral Signature Sunset Stripe Band */}
-      <div className="w-full h-16 bg-gradient-to-r from-primary via-sunshine-700 to-sunshine-500"></div>
-
-      {/* Footer */}
-      <footer className="w-full bg-cream py-16 px-8 lg:px-24">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          <div>
-            <h4 className="font-semibold text-xs uppercase tracking-widest mb-4">Why VibeCoder</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-primary text-sm hover:underline">Overview</a></li>
-              <li><a href="#" className="text-primary text-sm hover:underline">Technology</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-semibold text-xs uppercase tracking-widest mb-4">Explore</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-primary text-sm hover:underline">Portfolio</a></li>
-              <li><a href="#" className="text-primary text-sm hover:underline">Pricing</a></li>
-            </ul>
-          </div>
-        </div>
-      </footer>
+      <LandingNav />
+      <LandingHero />
+      <ProblemContrast />
+      <HowItWorks />
+      <MetricsExplainer />
+      <PrivacyBlock />
+      <PullQuoteDivider />
+      <FinalCta />
+      <LandingFooter />
     </main>
   );
 }
-

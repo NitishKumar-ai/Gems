@@ -10,35 +10,14 @@ import { test, expect } from '@playwright/test';
 // deleted specs was the ISSUE-001 regression guard (diff lines sharing a row); it is
 // tracked in TODOS.md so it comes back with the feature rather than being quietly lost.
 
-test.describe('VibeCoder Portfolio Flow', () => {
-  test('should allow a user to import a repo and view the portfolio page', async ({ page }) => {
+test.describe('Gems Portfolio Flow', () => {
+  test('the landing page links to the demo profile', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.locator('nav')).toContainText('VibeCoder_');
-    await expect(page.locator('h1')).toContainText('Vibe Coding.');
+    await expect(page.locator('nav')).toContainText('Gems_');
+    await expect(page.locator('h1')).toContainText('Your builder journey');
 
-    const repoInput = page.locator('input#repoUrl');
-    await repoInput.fill('https://github.com/testuser/testrepo');
-
-    // Hold the import response open so the loading state is observable. /api/import is a
-    // regex match, so it usually returns faster than an assertion can catch the button
-    // text — this test failed ~1 run in 3 before the delay was added.
-    let release: () => void = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    await page.route('**/api/import', async (route) => {
-      await held;
-      await route.continue();
-    });
-
-    const submitButton = page.locator('button[type="submit"]');
-    await submitButton.click();
-
-    await expect(submitButton).toContainText('Analyzing Vibes...');
-    await expect(submitButton).toBeDisabled();
-    release();
-
+    await page.getByRole('link', { name: 'View demo profile' }).click();
     await page.waitForURL('/testuser/testrepo');
 
     await expect(page.locator('h1')).toContainText('testrepo');

@@ -18,8 +18,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mistral VibeCoder",
-  description: "Frontier AI. In your hands.",
+  title: "Gems — Your Builder Journey",
+  description: "Turns how you build with Claude Code into a shareable builder journey.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
