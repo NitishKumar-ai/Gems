@@ -3,6 +3,21 @@
 All notable changes to Gems are recorded here. This project follows
 [Semantic Versioning](https://semver.org/) using the version in `package.json`.
 
+## [0.8.0] - 2026-08-08
+
+### Added
+
+- **The Builder Rubric.** Four scored dimensions below Achievements on every profile — Evidence
+  Discipline, Prompt Craft, Execution Hygiene, Learning Velocity — each backed by the real
+  session data that produced it, with an inline evidence line plus a click-to-expand trail
+  rather than an opaque number. Scores interpolate live against the current threshold bands
+  (shown as "Bands as of {date}", with a provisional indicator until real-data calibration
+  lands) rather than being frozen at publish time, so recalibrating later changes what an
+  already-published profile shows without anyone republishing.
+- **Deployable, for real.** `prisma generate` now runs automatically via `postinstall`, so a
+  fresh Vercel build actually has a Prisma Client to import. README documents the Vercel + Neon
+  setup end to end.
+
 ## [0.7.0] - 2026-08-08
 
 ### Fixed

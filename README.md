@@ -377,3 +377,39 @@ Type-check and build:
 ```bash
 bun run build
 ```
+
+## Deployment
+
+Vercel, with Postgres via the Neon Marketplace integration. Nothing here is Vercel-specific in
+the code — `next.config.mjs` is untouched defaults — the setup is entirely account/environment
+wiring, done once:
+
+1. **Create the Vercel project** (`vercel link`, or import the repo from the Vercel dashboard).
+   `postinstall: "prisma generate"` in `package.json` means the first build already has a
+   Prisma Client to import — Vercel's default Next.js preset only runs `next build`, and
+   nothing else regenerates the client on a fresh install there.
+2. **Add Postgres.** Connect Neon through the Vercel Marketplace integration from the project's
+   dashboard — this sets `DATABASE_URL` for you, the same variable `.env.example` documents for
+   local dev.
+3. **Create a *second* GitHub OAuth App** for production — the local-dev one from step 4 of
+   *Getting started* has a `localhost` callback and won't work here. Callback URL:
+   `https://YOUR-DEPLOYMENT/api/auth/callback/github`. Set `AUTH_GITHUB_ID` and
+   `AUTH_GITHUB_SECRET` from it, plus a **fresh** `AUTH_SECRET` (`openssl rand -base64 32`) —
+   don't reuse the local dev one.
+4. **Apply migrations**, once, against the new database:
+   ```bash
+   vercel env pull .env.production.local   # DATABASE_URL now available locally, temporarily
+   npx prisma migrate deploy               # applies prisma/migrations/ to the new database
+   rm .env.production.local                # don't leave prod secrets on disk longer than needed
+   ```
+   Deliberately manual, not part of the build — a migration is a schema change and stays a
+   reviewed step, the same reasoning that chose `migrate deploy` over `db push` in the first
+   place. Re-run it by hand after every future migration is added, on every environment.
+5. **Deploy** (`vercel --prod`), then point the plugin at the real origin — `GEMS_HOST` in
+   [plugin/commands/gems.mjs](plugin/commands/gems.mjs) defaults to `http://localhost:3000`
+   until it's updated to the deployed URL, so builders installing the plugin fresh publish to
+   the real instance without having to set an env var themselves.
+
+`src/app/api/webhook/route.ts` (the QStash-driven roast worker) is intentionally left
+unconfigured — it fails closed (503) without `QSTASH_CURRENT_SIGNING_KEY`, and the roast
+feature it serves is unmounted dead code (see TODOS.md). Nothing calls this route today.
