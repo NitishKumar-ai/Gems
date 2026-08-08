@@ -143,10 +143,13 @@ function scoreEvidenceDiscipline(qualifying) {
   return {
     id: 'evidence-discipline',
     locked: false,
-    // Cumulative-earned, not live: once the floor is cleared, this score is not
-    // recomputed against a shrinking recent window — a lapse doesn't erase prior
-    // discipline, the same guarantee achievements gives `reads-first`.
-    score: interpolateBand(rate, EVIDENCE_DISCIPLINE_BANDS),
+    // The raw rate, not an interpolated score. Publish-time freezes the RATE (cumulative-
+    // earned — a lapse doesn't erase prior discipline, the same guarantee achievements
+    // gives `reads-first`); turning it into a 0-10 score against EVIDENCE_DISCIPLINE_BANDS
+    // is a render-time step (interpolateBand, called by the consumer — src/lib/rubric.ts
+    // for the web page, or a local CLI preview), so a later band recalibration changes what
+    // renders without needing anyone to republish.
+    value: rate,
     evidence: `${agg.informed_edits}/${agg.edits} edits informed (${pct(rate)})`,
   };
 }
@@ -172,7 +175,8 @@ function scorePromptCraft(qualifying, windows) {
   return {
     id: 'prompt-craft',
     locked: false,
-    score: interpolateBand(delta, PROMPT_CRAFT_BANDS),
+    // Raw delta, not an interpolated score — see the note on Evidence Discipline above.
+    value: delta,
     evidence: `steering ${pct(windows.earlier.steering_rate_event)} → ${pct(windows.recent.steering_rate_event)}`,
   };
 }
@@ -191,7 +195,8 @@ function scoreExecutionHygiene(qualifying) {
   return {
     id: 'execution-hygiene',
     locked: false,
-    score: interpolateBand(window.invalid_action, EXECUTION_HYGIENE_BANDS),
+    // Raw rate, not an interpolated score — see the note on Evidence Discipline above.
+    value: window.invalid_action,
     evidence: `${window.tool_calls} tool calls over the trailing ${window.sessions} sessions, ${pct(window.invalid_action)} failed`,
   };
 }
@@ -267,9 +272,12 @@ export function evaluateRubric(sessions) {
   }
 
   return {
+    // Only the raw-signal shape version — band_version/provisional/calibrated-at describe
+    // how to *interpret* a signal, not the signal itself, so they live in src/lib/rubric.ts
+    // as constants read live at render time. Freezing them here would mean a later band
+    // recalibration couldn't change what an old published profile displays, which is
+    // exactly the bug the live-interpolation design exists to avoid.
     schema: RUBRIC_SIGNAL_SCHEMA_VERSION,
-    band_version: RUBRIC_BAND_VERSION,
-    provisional: RUBRIC_BANDS_PROVISIONAL,
     qualifying_sessions: qualifying.length,
     dimensions: {
       'evidence-discipline': scoreEvidenceDiscipline(qualifying),

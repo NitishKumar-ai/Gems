@@ -65,7 +65,7 @@ function thinSession(id: string, startedAt: string) {
 type DimensionResult = {
   locked: boolean;
   progress?: { value: number; target: number; label: string; ratio: number };
-  score?: number;
+  value?: number;
   evidence?: string;
   direction?: string;
   directions?: Record<string, string | null>;
@@ -124,7 +124,10 @@ test('Evidence Discipline is locked below the edit floor, with progress toward i
   expect(ed.progress).toEqual({ value: 10, target: EVIDENCE_DISCIPLINE_EDIT_FLOOR, label: 'edits recorded', ratio: 0.2 });
 });
 
-test('Evidence Discipline scores once the edit floor clears', () => {
+test('Evidence Discipline exposes the raw rate, not a pre-interpolated score', () => {
+  // The raw rate is what gets published, frozen forever. The 0-10 score is a render-time
+  // step (interpolateBand, via src/lib/rubric.ts) so a later band recalibration can change
+  // what displays without anyone republishing — baking a score in here would defeat that.
   const sessions = Array.from({ length: 5 }, (_, i) =>
     session(`s${i}`, `2026-08-0${i + 1}T00:00:00.000Z`, { edits: 20, informed: 16 }), // 100 edits, 80% informed
   );
@@ -132,7 +135,8 @@ test('Evidence Discipline scores once the edit floor clears', () => {
   const ed = dim(evaluateRubric(sessions), 'evidence-discipline');
 
   expect(ed.locked).toBe(false);
-  expect(ed.score).toBe(interpolateBand(0.8, EVIDENCE_DISCIPLINE_BANDS));
+  expect(ed.value).toBe(0.8);
+  expect(interpolateBand(ed.value!, EVIDENCE_DISCIPLINE_BANDS)).toBe(10);
   expect(ed.evidence).toBe('80/100 edits informed (80.0%)');
 });
 
@@ -157,9 +161,9 @@ test('Prompt Craft scores the delta of steering_rate_event, not the raw rate', (
   const pc = dim(evaluateRubric([...recent, ...early]), 'prompt-craft');
 
   expect(pc.locked).toBe(false);
-  // earlier 0.4, recent 0.1, delta -0.3 — a falling steering rate, scores well.
-  expect(pc.score).toBe(interpolateBand(-0.3, PROMPT_CRAFT_BANDS));
-  expect(pc.score).toBeGreaterThan(5);
+  // earlier 0.4, recent 0.1 — the raw delta is -0.3, a falling steering rate.
+  expect(pc.value).toBe(-0.3);
+  expect(interpolateBand(pc.value!, PROMPT_CRAFT_BANDS)).toBeGreaterThan(5);
 });
 
 test('Execution Hygiene is locked below the trailing-window floor', () => {
@@ -183,7 +187,7 @@ test('Execution Hygiene reflects only the trailing window, not full history', ()
   const hygiene = dim(evaluateRubric([...clean, bad]), 'execution-hygiene');
 
   expect(hygiene.locked).toBe(false);
-  expect(hygiene.score).toBe(interpolateBand(0.1, EXECUTION_HYGIENE_BANDS)); // 10 failures / 100 calls
+  expect(hygiene.value).toBe(0.1); // 10 failures / 100 calls — the raw rate, not a score
 });
 
 test('Learning Velocity is locked until the other three have a computable trend', () => {
@@ -260,12 +264,14 @@ test('Learning Velocity reports "mixed" when there is no 2-of-3 agreement', () =
   expect(lv.direction).toBe('mixed');
 });
 
-test('evaluateRubric carries its own schema, band version, and provisional flag', () => {
+test('evaluateRubric carries its own raw-signal schema version', () => {
+  // Deliberately does NOT carry band_version/provisional — those describe how to interpret
+  // a signal, not the signal itself, and belong in src/lib/rubric.ts as live constants.
   const result = evaluateRubric([]);
 
   expect(result.schema).toBe(RUBRIC_SIGNAL_SCHEMA_VERSION);
-  expect(result.provisional).toBe(true);
-  expect(typeof result.band_version).toBe('number');
+  expect(result).not.toHaveProperty('band_version');
+  expect(result).not.toHaveProperty('provisional');
 });
 
 test('buildJourney wires rubric alongside achievements, from the same session list', () => {
