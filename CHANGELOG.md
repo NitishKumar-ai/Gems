@@ -3,6 +3,46 @@
 All notable changes to Gems are recorded here. This project follows
 [Semantic Versioning](https://semver.org/) using the version in `package.json`.
 
+## [0.7.0] - 2026-08-08
+
+### Fixed
+
+- **Anyone with an account could publish under anyone's handle.** `/api/publish` took the username
+  from the request body, and the ownership check added in the last release only compared against
+  profiles that already existed — so a handle nobody had claimed passed every check and was created
+  on the spot. Any signed-in account could take `/torvalds/linux`. Your profile handle now comes
+  from the GitHub login recorded when you sign in, and nothing else. A username in the request is
+  still read, but only to be checked and refused.
+- **The plugin could not actually be installed.** There was no marketplace entry, and `/gems` was
+  declared in a file that is not part of the plugin format — installed, Claude Code found no
+  commands at all. It had only ever worked because the script was being run by hand during
+  development. `/plugin marketplace add NitishKumar-ai/Gems` then `/plugin install gems@gems` now
+  installs a working plugin, hook and command both.
+
+### Added
+
+- **A CI pipeline.** Lint, plugin typecheck, plugin tests, build and the end-to-end suite now run
+  on every pull request, against a real Postgres.
+- **The dashboard lists what you have published**, each entry linking to its profile. It previously
+  said "These will appear here soon."
+
+### Changed
+
+- **Postgres, with migrations.** The database moved from SQLite to Postgres and
+  `prisma/migrations/` is now the source of truth. The end-to-end suite applies those same
+  migrations into a schema of its own, so a broken or missing migration fails in CI rather than on
+  a deploy. Local setup is `createdb gems_dev && npx prisma migrate dev`.
+- **`/gems publish` no longer asks for your username.** The server knows who you are from your API
+  key. `--username` and `GEMS_USERNAME` are still accepted, and now produce a clear error naming
+  the handle you actually own instead of publishing somewhere unexpected.
+
+### Removed
+
+- **The roast is no longer on the profile.** It had been rendering canned text and an invented
+  model name (`Gem (Claude 3.5 Opus)`) beside real published numbers — the same reason the replay
+  was pulled two releases ago. The component stays in the project and comes back when there is a
+  real model behind it. A test now asserts it has not crept back.
+
 ## [0.6.0] - 2026-08-08
 
 ### Added

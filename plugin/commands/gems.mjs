@@ -18,25 +18,24 @@ async function publishJourney(journey) {
     process.exit(1);
   }
 
-  // Parse --username or GEMS_USERNAME
+  // The server publishes under the GitHub handle bound to this API key and ignores any handle
+  // sent from here, so asking for one is at best redundant and at worst a lie about who decides.
+  // Still read, still sent, purely so an explicit mismatch comes back as a 403 naming the real
+  // handle rather than quietly landing somewhere the caller did not name.
   let username = process.env.GEMS_USERNAME;
   const userIdx = args.indexOf('--username');
   if (userIdx !== -1 && args[userIdx + 1]) {
     username = args[userIdx + 1];
-  }
-  if (!username) {
-    console.error('Error: --username or GEMS_USERNAME is required to publish.');
-    process.exit(1);
   }
 
   const repo = basename(process.cwd());
   const host = process.env.GEMS_HOST || 'http://localhost:3000';
   const url = `${host}/api/publish`;
 
-  console.log(`Publishing journey for ${username}/${repo} to ${host}...`);
+  console.log(`Publishing ${repo} to ${host}...`);
 
   const payload = JSON.stringify({
-    username,
+    ...(username ? { username } : {}),
     repo,
     metrics: journey,
   });
@@ -60,13 +59,24 @@ async function publishJourney(journey) {
           console.log(`✅ Successfully published! (Status: ${res.statusCode})`);
         }
       } else {
-        console.error(`❌ Failed to publish (HTTP ${res.statusCode}):`, data);
+        // The server's `error` string is the actionable part — which handle you actually own, or
+        // that you need to sign in again. Falling back to the raw body keeps an unexpected
+        // response (an HTML error page from a proxy, say) visible rather than swallowed.
+        let detail = data;
+        try {
+          detail = JSON.parse(data).error ?? data;
+        } catch {
+          /* not JSON — show it as it arrived */
+        }
+        console.error(`❌ Failed to publish (HTTP ${res.statusCode}): ${detail}`);
+        process.exitCode = 1;
       }
     });
   });
 
   req.on('error', (e) => {
     console.error('❌ Failed to publish: Network error:', e.message);
+    process.exitCode = 1;
   });
 
   req.write(payload);

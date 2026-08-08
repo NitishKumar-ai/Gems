@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { auth, signIn } from "@/auth"
 import prisma from "@/lib/prisma"
 import { randomUUID } from "crypto"
@@ -26,13 +27,21 @@ export default async function DashboardPage() {
 
   // Get user from db
   let user = await prisma.user.findUnique({ where: { id: session.user.id } })
-  
+
   if (user && !user.apiKey) {
     user = await prisma.user.update({
       where: { id: user.id },
       data: { apiKey: randomUUID() }
     })
   }
+
+  const journeys = user
+    ? await prisma.journey.findMany({
+        where: { userId: user.id },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, username: true, repo: true, updatedAt: true },
+      })
+    : []
 
   return (
     <main className="min-h-screen bg-canvas text-ink p-8 lg:p-24">
@@ -54,7 +63,31 @@ export default async function DashboardPage() {
 
         <div className="bg-surface border border-hairline-soft p-8 rounded-lg shadow-sm">
           <h2 className="text-2xl font-semibold mb-4">Your Published Journeys</h2>
-          <p className="text-ink-tint mb-4">These will appear here soon.</p>
+          {journeys.length === 0 ? (
+            <p className="text-ink-tint">
+              Nothing published yet. Run <code className="font-mono">/gems publish</code> in a
+              repository to put one here.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {journeys.map((journey) => (
+                <li key={journey.id} className="flex items-baseline justify-between gap-4">
+                  <Link
+                    href={`/${journey.username}/${journey.repo}`}
+                    className="font-mono text-primary hover:underline"
+                  >
+                    {journey.username}/{journey.repo}
+                  </Link>
+                  {/* An ISO date rather than a locale one: this renders on the server, so
+                      `toLocaleDateString` would format in the server's locale and then mismatch
+                      the client on hydration. */}
+                  <span className="text-ink-tint text-sm">
+                    {journey.updatedAt.toISOString().slice(0, 10)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </main>

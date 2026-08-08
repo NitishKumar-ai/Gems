@@ -4,13 +4,14 @@ import prisma from '@/lib/prisma';
 /**
  * Receives a derived journey artifact from `/gems publish` and stores it for the profile page.
  *
- * The API key identifies who is publishing. `username` says where it lands, and it arrives in the
- * request body — so the two have to be reconciled before anything is written. Without that check
- * the upsert below reassigns `userId` on an existing row, which means any valid key could
- * overwrite someone else's public profile and take ownership of it in the same call.
+ * The API key identifies who is publishing, and the profile it lands on is derived from that key
+ * alone: `username` is the GitHub handle bound to the account at sign-in, never a value the
+ * caller supplies. Trusting the body meant nothing stopped a signed-in stranger publishing to
+ * `/torvalds/linux` — a username nobody had claimed yet passed every check, because the only
+ * check was against usernames already taken.
  *
- * Still open: nothing stops a caller claiming a username nobody has published under yet. Closing
- * that needs the GitHub login bound to the account at sign-in — tracked as P0 in TODOS.md.
+ * A body `username` is still accepted, and still has to match, so an out-of-date client gets a
+ * 403 explaining the mismatch rather than silently publishing somewhere it did not expect.
  */
 export async function POST(request: Request) {
   try {
@@ -33,10 +34,30 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json();
-    const { username, repo, metrics } = data;
+    const { repo, metrics } = data;
 
-    if (!username || !repo || !metrics) {
-      return NextResponse.json({ error: 'Missing required fields: username, repo, metrics' }, { status: 400 });
+    if (!repo || !metrics) {
+      return NextResponse.json({ error: 'Missing required fields: repo, metrics' }, { status: 400 });
+    }
+
+    // The account owns a handle or it publishes nothing. An account predating the sign-in binding
+    // has a null here; so does one whose bind failed on a handle collision. Either way the fix is
+    // the same and the caller can act on it, which is why this is not a bare 403.
+    const username = user.githubLogin;
+    if (!username) {
+      return NextResponse.json(
+        { error: 'This account has no GitHub handle on record. Sign in again at /dashboard, then retry.' },
+        { status: 409 },
+      );
+    }
+
+    // Accepted for compatibility with clients that still send it, but it is only ever checked —
+    // never used to decide where the write lands.
+    if (typeof data.username === 'string' && data.username !== username) {
+      return NextResponse.json(
+        { error: `You can only publish as "${username}".` },
+        { status: 403 },
+      );
     }
 
     const existing = await prisma.journey.findUnique({
@@ -45,8 +66,10 @@ export async function POST(request: Request) {
     });
 
     if (existing && existing.userId !== user.id) {
-      // Deliberately does not say whether the journey exists — that would turn this endpoint
-      // into a way to enumerate who has published what.
+      // Now reachable only through a handle change: someone published as `alice`, renamed on
+      // GitHub, and a different account took the name. Deriving `username` from the key makes
+      // this rare rather than impossible, so the ownership check stays — the upsert below would
+      // otherwise reassign `userId` and hand over the older profile along with the name.
       return NextResponse.json({ error: 'You do not own this profile' }, { status: 403 });
     }
 

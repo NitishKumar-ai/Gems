@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "gems",
+  "description": "The Gems plugin — turns how you build with Claude Code into a shareable builder journey",
+  "owner": {
+    "name": "NitishKumar-ai"
+  },
+  "plugins": [
+    {
+      "name": "gems",
+      "description": "Captures each Claude Code session, derives metrics locally, and builds a longitudinal builder journey with achievements you can publish to a public profile",
+      "author": {
+        "name": "NitishKumar-ai"
+      },
+      "source": "./plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/NitishKumar-ai/Gems"
+    }
+  ]
+}
