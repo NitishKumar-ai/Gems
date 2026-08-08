@@ -39,18 +39,29 @@ sessions." Earned from evidence, never granted for showing up.
 Deliberately excluded: a "% of code written by AI" number. It is trivially gamed and says nothing
 about whether you understood what you shipped.
 
+## Install
+
+```
+/plugin marketplace add NitishKumar-ai/Gems
+/plugin install gems@gems
+```
+
+Then `/gems` in any repository. Publishing to a profile additionally needs a `GEMS_API_KEY` from
+`/dashboard`.
+
 ## Current state
 
 The plugin is real end to end: it captures each session, derives metrics, evaluates achievements, and
-publishes a redacted artifact that the profile page renders. What is still mock is the roast and the
-replay, both flavor rather than measurement.
+publishes a redacted artifact that the profile page renders. Nothing invented is left on a published
+profile — the roast and the replay are both built, both unmounted, and both come back when they have
+something real to say.
 
 | Piece | Where | State |
 |---|---|---|
 | Landing page + import form | [src/app/page.tsx](src/app/page.tsx) | Real UI, Mistral-inspired design system |
 | Profile page | [src/app/[username]/[repo]/page.tsx](src/app/[username]/[repo]/page.tsx) | Real — renders published metrics and achievements |
 | Live Vibe Replay | [src/components/LiveVibeReplay.tsx](src/components/LiveVibeReplay.tsx) | Real component, **not mounted** — see below |
-| Gem Roast | [src/components/GemRoast.tsx](src/components/GemRoast.tsx) | Real component, mock roast |
+| Gem Roast | [src/components/GemRoast.tsx](src/components/GemRoast.tsx) | Real component, mock roast, **not mounted** |
 | Import endpoint | [src/app/api/import/route.ts](src/app/api/import/route.ts) | Regex on a GitHub URL, nothing more |
 | Roast service | [src/services/llm.ts](src/services/llm.ts) | Mock — a `setTimeout` and canned text |
 | QStash webhook | [src/app/api/webhook/route.ts](src/app/api/webhook/route.ts) | Wired, signature verification commented out |
@@ -60,19 +71,19 @@ replay, both flavor rather than measurement.
 | Journey / evolution deltas | [plugin/lib/journey.mjs](plugin/lib/journey.mjs) | Real, tested — pooled totals and trend across the store |
 | Achievements | [plugin/lib/achievements.mjs](plugin/lib/achievements.mjs) | Real, tested — ten farm-resistant badges, each citing its evidence |
 | `/gems` command | [plugin/commands/gems.mjs](plugin/commands/gems.mjs) | Real, tested — works offline, displays CLI summary |
-| Persistence / identity | [src/app/dashboard/page.tsx](src/app/dashboard/page.tsx) | Real — SQLite database with NextAuth GitHub login |
+| Persistence / identity | [src/app/dashboard/page.tsx](src/app/dashboard/page.tsx) | Real — Postgres with NextAuth GitHub login, API key and published-journey list |
 | Plugin tests | [plugin/](plugin/) | 89 tests, passing |
-| E2E test | [tests/e2e/portfolio.spec.ts](tests/e2e/portfolio.spec.ts) | 3 tests, passing against a seeded fixture |
+| E2E tests | [tests/e2e/](tests/e2e/) | 15 tests, passing against a seeded Postgres schema |
 
-**The replay is built but not on the profile.** Phase 4 stopped mounting
+**Neither the replay nor the roast is on the profile.** Phase 4 stopped mounting
 [LiveVibeReplay](src/components/LiveVibeReplay.tsx) when the page started rendering published
-metrics, and Phase 5 left it that way: the component only has invented commits to show, and putting
-those beside a real person's numbers is the thing decision 3 below exists to prevent. It comes back
-when there is real commit data to feed it. The roast has the same problem and is still there, which
-is inconsistent — it is the next thing to resolve, not a defended position.
+metrics, because the component only has invented commits to show and putting those beside a real
+person's numbers is the thing decision 3 below exists to prevent. Phase 6 applied the same rule to
+the roast, which had been rendering canned text and an invented model name (`Gem (Claude 3.5 Opus)`)
+on every published profile. Both components stay in the tree; both come back when there is real data
+behind them. An E2E test asserts the roast has not quietly returned.
 
-Model names on a published profile are exact ids taken from the transcript. The invented strings that
-remain live only in the roast and the replay, which are decoration and are marked as such above.
+Every model name on a published profile is now an exact id taken from a transcript.
 
 ## Three decisions, and the evidence for them
 
@@ -219,12 +230,39 @@ the claim mean anything.
 
 *Depends on:* Phase 4, so they are shareable.
 
-### Phase 6 — Community
+### Phase 6 — Publishing for real ✅ done
+
+Phase 5 shipped achievements onto a profile nobody else could reach. Four things stood between the
+repo and a second user, and Community depended on all of them:
+
+- **Anyone could publish as anyone.** `/api/publish` took `username` from the request body. The
+  ownership check added in Phase 5 only compared against profiles that *already existed*, so a
+  handle nobody had claimed passed every test and was created on the spot — any signed-in account
+  could take `/torvalds/linux`. The handle now comes from the GitHub login bound to the API key at
+  sign-in and nothing else; the body value is accepted only to be checked. A regression test
+  publishes as `torvalds` and asserts a 403, and it returns 200 against the old route.
+- **The plugin could not be installed.** There was no marketplace entry, and `/gems` was declared in
+  a `commands/commands.json` that is not part of the plugin format — installed, Claude Code
+  reported `Skills (0)` and the command did not exist. It had only ever worked because the script
+  was run by hand. See [plugin/README.md](plugin/README.md#the-command-has-to-be-markdown).
+- **Nothing was deployed**, and the database was SQLite with no migration history. Now Postgres,
+  with `prisma/migrations/` as the source of truth and an E2E suite that applies the same
+  migrations production will.
+- **The roast was still mock data on a public profile**, which is the exact thing the replay was
+  pulled for. Unmounted, with a test asserting it stays that way.
+
+Also closed here: the missing CI pipeline, and a dashboard that listed published journeys as "these
+will appear here soon."
+
+*Depends on:* Phase 5, and a deploy target.
+
+### Phase 7 — Community
 
 Compare, browse, follow. The retention layer, and the only phase that genuinely needs a backend with
 accounts.
 
-*Depends on:* enough published profiles to make comparison mean anything.
+*Depends on:* Phase 6 — profiles that other people can actually publish, under handles that are
+provably theirs. Comparison across profiles anyone could have written is not comparison.
 
 **The roast** ([GemRoast.tsx](src/components/GemRoast.tsx)) folds in as flavor on the profile once
 there is real data to roast — not its own phase. It is also the most directly duplicated feature; see
@@ -291,7 +329,8 @@ hint-dependence curves, transfer retention, run disagreement.
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack) · React 19 · Tailwind CSS 3 · TypeScript · Playwright
+Next.js 16 (App Router, Turbopack) · React 19 · Tailwind CSS 3 · TypeScript · Prisma + Postgres ·
+NextAuth · Playwright
 
 > **Note:** this Next.js version has breaking changes from older conventions. Read the relevant guide
 > in `node_modules/next/dist/docs/` before writing App Router code — see [AGENTS.md](AGENTS.md).
@@ -302,12 +341,15 @@ Next.js 16 (App Router, Turbopack) · React 19 · Tailwind CSS 3 · TypeScript �
 bun install
 ```
 
-Create the local database — Prisma resolves `DATABASE_URL` relative to `prisma/schema.prisma`, so
-`file:./dev.db` means `prisma/dev.db`. Copy [.env.example](.env.example) to `.env` first:
+Create the database. Copy [.env.example](.env.example) to `.env` and point `DATABASE_URL` at a
+Postgres server first:
 
 ```bash
-cp .env.example .env && npx prisma db push
+createdb gems_dev && npx prisma migrate dev
 ```
+
+`prisma/migrations/` is the source of truth — `db push` would apply the schema while skipping the
+history, which is the thing that stops mattering right up until there is a deployed database.
 
 ```bash
 bun run dev
@@ -322,8 +364,9 @@ Run the plugin unit tests:
 bun run test:plugin
 ```
 
-Run the E2E tests. They start their own dev server and seed an isolated database from
-[tests/e2e/global-setup.ts](tests/e2e/global-setup.ts), so they never touch your `prisma/dev.db`:
+Run the E2E tests. They start their own dev server and seed an isolated Postgres *schema* derived
+from your `DATABASE_URL` in [tests/e2e/global-setup.ts](tests/e2e/global-setup.ts), so they never
+touch your own rows:
 
 ```bash
 bun run test:e2e

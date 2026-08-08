@@ -3,6 +3,16 @@
 Captures your Claude Code sessions and turns each one into metrics, so Gems can build a builder
 journey out of them.
 
+## Install
+
+```
+/plugin marketplace add NitishKumar-ai/Gems
+/plugin install gems@gems
+```
+
+The `SessionEnd` hook starts recording from the next session that ends. `/gems` reads what it has
+so far.
+
 **Scope: capture, extract, journey, achievements, and publish.** `/gems` reads your journey in the
 terminal and works fully offline. `/gems publish` is the only code here that touches the network,
 and it sends the derived artifact described below — never a transcript.
@@ -177,6 +187,18 @@ The hook tries that derived slug first, then **falls back to scanning every proj
 `<session_id>.jsonl`. The naming rule belongs to Claude Code and could change; session ids are unique
 on their own, so the scan is the durable path and the slug is just a shortcut.
 
+## The command has to be markdown
+
+`/gems` was declared in a `commands/commands.json` naming a script to run. That file is not part of
+the plugin format and Claude Code ignored it: installed, the plugin reported `Skills (0)` and the
+slash command did not exist. It appeared to work only because the script was being run by hand
+during development, which is exactly the kind of bug that survives until the first real install.
+
+Commands are markdown with frontmatter — [commands/gems.md](commands/gems.md) — and a `!`-fenced
+block is what actually executes the script. `claude plugin validate` passes on both shapes, because
+it checks the manifest rather than looking for components; `claude plugin details gems` is the one
+that shows whether anything registered.
+
 ## Failure behavior
 
 A hook that throws disrupts a real session, so every failure path writes a line to
@@ -229,6 +251,7 @@ hatch for non-default Claude Code installs.
 | File | What it owns |
 |---|---|
 | [.claude-plugin/plugin.json](.claude-plugin/plugin.json) | Manifest |
+| [commands/gems.md](commands/gems.md) | Declares the `/gems` slash command |
 | [hooks/hooks.json](hooks/hooks.json) | Declares the `SessionEnd` hook |
 | [hooks/capture-session.mjs](hooks/capture-session.mjs) | Locates the transcript, extracts, appends one store record |
 | [lib/extract.mjs](lib/extract.mjs) | One transcript → one metrics object. Pure, streaming, no I/O beyond the read |

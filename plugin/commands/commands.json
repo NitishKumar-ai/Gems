@@ -1,9 +1,0 @@
-{
-  "commands": [
-    {
-      "name": "gems",
-      "description": "View your builder journey",
-      "command": "node \"${CLAUDE_PLUGIN_ROOT}/commands/gems.mjs\""
-    }
-  ]
-}

@@ -45,8 +45,12 @@ test.describe('VibeCoder Portfolio Flow', () => {
     await expect(page.locator('h2')).toContainText('@testuser');
 
     await expect(page.locator('text=The Vibe Journey')).toBeVisible();
-    await expect(page.getByText("Gem's Verdict")).toBeVisible();
-    await expect(page.getByText("Gem's Roast")).toBeVisible();
+
+    // The roast is gone from the profile, and stays gone while it is canned text. Asserting its
+    // absence rather than deleting the assertion outright: re-mounting the mock beside real
+    // published numbers is the regression worth catching.
+    await expect(page.getByText("Gem's Verdict")).toHaveCount(0);
+    await expect(page.getByText("Gem's Roast")).toHaveCount(0);
 
     // Model tags come from the transcript now, so this asserts a real model id rather than
     // the invented string the mock used to emit.

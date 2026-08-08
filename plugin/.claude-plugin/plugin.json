@@ -1,10 +1,12 @@
 {
   "name": "gems",
-  "version": "0.1.0",
+  "version": "0.7.0",
   "description": "Turns how you build with Claude Code into a shareable builder journey",
   "author": {
-    "name": "Gems"
+    "name": "NitishKumar-ai"
   },
+  "homepage": "https://github.com/NitishKumar-ai/Gems",
+  "repository": "https://github.com/NitishKumar-ai/Gems",
   "license": "MIT",
   "keywords": [
     "portfolio",

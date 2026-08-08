@@ -1,6 +1,5 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
-import GemRoast from '@/components/GemRoast';
 import Achievements from '@/components/Achievements';
 import prisma from '@/lib/prisma';
 
@@ -23,19 +22,7 @@ async function getRepoData(username: string, repo: string) {
 
   const metrics = JSON.parse(journey.metrics);
 
-
-
-  const mockRoast = {
-    roastText: `Oh honey, look at all these tool failures. Maybe read the docs before making Claude write blindly? At least your evidence-before-edit rate is somewhat acceptable.`,
-    model: 'Gem (Claude 3.5 Opus)',
-    rating: '7/10 - Getting there',
-    insights: [
-      'Try running tests more frequently.',
-      'You are relying heavily on Claude for simple edits.'
-    ]
-  };
-
-  return { metrics, roast: mockRoast, modelsUsed: Object.keys(metrics.totals?.models || {}) };
+  return { metrics, modelsUsed: Object.keys(metrics.totals?.models || {}) };
 }
 
 export default async function PortfolioPage({ params }: { params: Promise<{ username: string, repo: string }> }) {
@@ -46,7 +33,7 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
     notFound();
   }
 
-  const { metrics, roast, modelsUsed } = data;
+  const { metrics, modelsUsed } = data;
   const rates = metrics.totals?.rates || {};
 
   // A rate is deliberately `null` when there was no denominator to divide by — a session with no
@@ -104,59 +91,51 @@ export default async function PortfolioPage({ params }: { params: Promise<{ user
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-xl font-semibold flex items-center space-x-2">
-              <span className="text-cyan-400">⚡</span>
-              <span>The Vibe Journey</span>
-            </h3>
-            <p className="text-zinc-400 text-sm">Real metrics extracted from Claude Code sessions.</p>
-            
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
-                <div className="text-3xl font-bold text-white mb-2">{metrics.totals?.sessions || 0}</div>
-                <div className="text-sm text-zinc-400 uppercase tracking-wider">Sessions</div>
-              </div>
-              <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
-                <div className="text-3xl font-bold text-white mb-2">{metrics.totals?.edits || 0}</div>
-                <div className="text-sm text-zinc-400 uppercase tracking-wider">Total Edits</div>
-              </div>
-              <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
-                <div className="text-3xl font-bold text-white mb-2">{ebe}</div>
-                <div className="text-sm text-zinc-400 uppercase tracking-wider">Evidence Before Edit</div>
-              </div>
-              <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
-                <div className="text-3xl font-bold text-white mb-2">{iar}</div>
-                <div className="text-sm text-zinc-400 uppercase tracking-wider">Invalid Action Rate</div>
-              </div>
+        {/* One column, not two. The right-hand column held the roast, which was canned text and an
+            invented model name sitting beside a real person's published numbers — the same reason
+            LiveVibeReplay was unmounted in Phase 4. It comes back when it has something real to
+            say; until then the measurements are the page. */}
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold flex items-center space-x-2">
+            <span className="text-cyan-400">⚡</span>
+            <span>The Vibe Journey</span>
+          </h3>
+          <p className="text-zinc-400 text-sm">Real metrics extracted from Claude Code sessions.</p>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
+              <div className="text-3xl font-bold text-white mb-2">{metrics.totals?.sessions || 0}</div>
+              <div className="text-sm text-zinc-400 uppercase tracking-wider">Sessions</div>
             </div>
-            
-            {deltas.length > 0 && (
-              <div className="mt-8 bg-zinc-900 p-6 rounded-lg border border-zinc-800">
-                <h4 className="text-lg font-semibold mb-4 border-b border-zinc-800 pb-2 text-zinc-200">Evolution</h4>
-                <div className="space-y-2 text-zinc-300">
-                  {deltas.map(({ label, value, betterWhen }) => (
-                    <div key={label} className="flex justify-between">
-                      <span>{label}:</span>
-                      {/* The sign follows the metric, never a notion of "good": rising
-                          evidence-before-edit is an improvement, rising invalid-action is not. */}
-                      <span className={signedClass(value, betterWhen)}>{signedPercent(value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
+              <div className="text-3xl font-bold text-white mb-2">{metrics.totals?.edits || 0}</div>
+              <div className="text-sm text-zinc-400 uppercase tracking-wider">Total Edits</div>
+            </div>
+            <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
+              <div className="text-3xl font-bold text-white mb-2">{ebe}</div>
+              <div className="text-sm text-zinc-400 uppercase tracking-wider">Evidence Before Edit</div>
+            </div>
+            <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
+              <div className="text-3xl font-bold text-white mb-2">{iar}</div>
+              <div className="text-sm text-zinc-400 uppercase tracking-wider">Invalid Action Rate</div>
+            </div>
           </div>
 
-          {/* Right Column: Roast */}
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold flex items-center space-x-2">
-              <span className="text-purple-500">🔥</span>
-              <span>Gem&apos;s Verdict</span>
-            </h3>
-            <p className="text-zinc-400 text-sm">Learning through playful critique.</p>
-            <GemRoast roastData={roast} isLoading={false} />
-          </div>
+          {deltas.length > 0 && (
+            <div className="mt-8 bg-zinc-900 p-6 rounded-lg border border-zinc-800">
+              <h4 className="text-lg font-semibold mb-4 border-b border-zinc-800 pb-2 text-zinc-200">Evolution</h4>
+              <div className="space-y-2 text-zinc-300">
+                {deltas.map(({ label, value, betterWhen }) => (
+                  <div key={label} className="flex justify-between">
+                    <span>{label}:</span>
+                    {/* The sign follows the metric, never a notion of "good": rising
+                        evidence-before-edit is an improvement, rising invalid-action is not. */}
+                    <span className={signedClass(value, betterWhen)}>{signedPercent(value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <Achievements data={metrics.achievements ?? null} />

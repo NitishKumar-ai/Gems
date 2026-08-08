@@ -24,15 +24,16 @@ Two things have to happen together:
 
 Until then the replay is dead code that reads as a shipped feature.
 
-### The roast is still mock data on a public profile
+### Give the roast something real to say
 
-**Priority:** P2
+**Priority:** P3
 
-[GemRoast](src/components/GemRoast.tsx) renders canned text and an invented model name
-(`Gem (Claude 3.5 Opus)`) on the published profile, hardcoded in
-[the page](src/app/[username]/[repo]/page.tsx). The replay was pulled for exactly this reason, so
-leaving the roast is inconsistent. Either wire it to [the roast service](src/services/llm.ts) with
-real metrics, or drop it from the profile until it has something real to say.
+[GemRoast](src/components/GemRoast.tsx) is unmounted as of v0.7.0 — it was rendering canned text and
+an invented model name on every published profile. Bringing it back means wiring
+[the roast service](src/services/llm.ts) to a real model call over the published metrics, caching
+the result on the `Journey` row so a page view is not a model call, and deciding who pays for it.
+
+Same bar as the replay: it goes back on the profile when it has real data behind it, not before.
 
 ## Plugin
 
@@ -47,23 +48,58 @@ problem rather than an evaluation one.
 
 ## Infrastructure
 
+### Not actually deployed
+
+**Priority:** P1
+
+Everything Phase 6 built is deployable and nothing is deployed. `GEMS_HOST` still defaults to
+`http://localhost:3000` in [gems.mjs](plugin/commands/gems.mjs), and flipping it is pointless until
+there is an origin to flip it to. Remaining, all of it needing credentials rather than code:
+
+- Provision Postgres (Neon via the Vercel Marketplace) and deploy the app.
+- Create a production GitHub OAuth app with the deployed callback URL, and set `AUTH_SECRET`,
+  `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`.
+- Run `npx prisma migrate deploy` against the deployed database.
+- Point the `GEMS_HOST` default at the deployed origin.
+
+## Completed
+
+### Anyone could publish under anyone's handle
+
+**Priority:** P0
+**Completed:** v0.7.0 (2026-08-08)
+
+`/api/publish` took `username` from the request body. Phase 5's ownership check only compared
+against profiles that already existed, so a handle nobody had claimed passed every check and was
+created on the spot — any signed-in account could take `/torvalds/linux`. The handle now comes from
+the GitHub login bound to the API key at sign-in. Recorded here late: this was flagged in the
+route's own comment as P0 and never made it into this file.
+
+### The plugin could not be installed
+
+**Priority:** P1
+**Completed:** v0.7.0 (2026-08-08)
+
+No marketplace entry, and `/gems` was declared in a `commands/commands.json` that is not part of the
+plugin format — `claude plugin details gems` reported `Skills (0)` on an installed copy. Now
+[.claude-plugin/marketplace.json](.claude-plugin/marketplace.json) and
+[plugin/commands/gems.md](plugin/commands/gems.md).
+
 ### No CI pipeline
 
 **Priority:** P2
+**Completed:** v0.7.0 (2026-08-08)
 
-There is no `.github/workflows/`, so nothing runs `bun run test:plugin`, `bun run test:e2e`,
-`bun run build`, or `bun run lint` on a pull request. All four pass locally as of this branch; the
-next regression lands unnoticed.
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs lint, plugin typecheck, plugin tests,
+build and E2E against a Postgres service container on every pull request.
 
 ### No Prisma migrations
 
 **Priority:** P3
+**Completed:** v0.7.0 (2026-08-08)
 
-`prisma/` has a schema but no `migrations/` directory, so the only way to build the database is
-`npx prisma db push`. That works for local development and loses schema history the moment there is
-a deployed database to evolve.
-
-## Completed
+Closed alongside the move to Postgres: `prisma/migrations/` is now the source of truth, and the E2E
+suite applies it with `migrate deploy` rather than `db push` so a broken migration fails in CI.
 
 ### Achievements derived from the longitudinal store
 
