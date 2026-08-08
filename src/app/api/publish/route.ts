@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { analyzeJourney, buildAnalysisInput } from '@/services/llm';
 
 /**
  * Receives a derived journey artifact from `/gems publish` and stores it for the profile page.
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You do not own this profile' }, { status: 403 });
     }
 
-    await prisma.journey.upsert({
+    const journey = await prisma.journey.upsert({
       where: { username_repo: { username, repo } },
       update: { metrics: JSON.stringify(metrics) },
       create: {
@@ -82,7 +83,20 @@ export async function POST(request: Request) {
         repo,
         metrics: JSON.stringify(metrics),
       },
+      select: { id: true },
     });
+
+    // Analysis is best-effort and additive. analyzeJourney() never throws — a missing key, a
+    // network error, or a malformed model response all resolve to `null`, and this is a separate
+    // update rather than folded into the upsert above so a republish whose analysis call fails
+    // (rate limit, transient error) never wipes out a previously-successful one.
+    const analysis = await analyzeJourney(buildAnalysisInput(repo, metrics));
+    if (analysis) {
+      await prisma.journey.update({
+        where: { id: journey.id },
+        data: { analysis: JSON.stringify(analysis) },
+      });
+    }
 
     return NextResponse.json({ success: true, url: `/${username}/${repo}` });
   } catch (error: unknown) {

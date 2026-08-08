@@ -65,6 +65,10 @@ model Journey {
   username  String
   repo      String
   metrics   String
+  // JSON-encoded AnalysisResult (src/services/llm.ts) from the synchronous Anthropic call in
+  // /api/publish. Null until that call succeeds, or forever if it never has — no key
+  // configured, or the call failed. Never fabricated to fill the gap.
+  analysis  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
