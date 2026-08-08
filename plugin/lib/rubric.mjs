@@ -20,34 +20,16 @@
 // One decision this file adds on top: raw signals are computed once, here, at publish time
 // (buildJourney is the only place with access to raw sessions — page.tsx only ever reads the
 // frozen JSON this produces). The *band* a raw signal maps to is a separate, later step —
-// live interpolation against the current threshold table, duplicated deliberately in
-// src/lib/rubric.ts for the app side (see the design doc's Engineering Review Resolutions:
-// no precedent in this codebase for src/ importing plugin/lib/*.mjs, and forcing one felt
-// like more blast radius than this feature justified). If you change a band table here,
-// change it there too — that pairing is the whole guard against the two disagreeing.
+// live interpolation against the current threshold table in shared/rubric-bands.mjs, imported
+// by both this file's consumers and src/lib/rubric.ts for the app side. One table, one
+// interpolateBand() — a later band recalibration changes what every consumer renders without
+// anyone needing to republish.
 
 import { pct, qualifies, step } from './achievements.mjs';
 import { aggregate, compareWindows, MIN_SESSIONS_FOR_TREND, splitAtMidpoint, trailingWindow } from './metrics.mjs';
 
 /** Raw signal shape written into the published blob by evaluateRubric(). */
 export const RUBRIC_SIGNAL_SCHEMA_VERSION = 1;
-
-/**
- * Which threshold table produced a score. Bumped whenever bands are recalibrated,
- * independent of RUBRIC_SIGNAL_SCHEMA_VERSION — a band recalibration doesn't change what
- * data was captured, only how it's being read. Surfaced as "bands as of {date}" in the UI.
- */
-export const RUBRIC_BAND_VERSION = 1;
-
-/**
- * These are LLM-proposed starting defaults (from the /office-hours design session),
- * not validated against a real distribution of builder journeys yet — there aren't enough
- * published profiles to calibrate against. Tracked in TODOS.md ("Rubric bands need
- * real-data calibration", P2). The UI must show a "provisional" indicator while this is
- * true; do not flip it without also resolving that TODO.
- */
-export const RUBRIC_BANDS_PROVISIONAL = true;
-export const RUBRIC_BAND_CALIBRATED_AT = '2026-08-08';
 
 /** Matches `reads-first`'s floor exactly — this dimension shares its underlying data. */
 export const EVIDENCE_DISCIPLINE_EDIT_FLOOR = 50;
@@ -64,68 +46,6 @@ export const LEARNING_VELOCITY_TOLERANCE = {
   invalid_action: 0.02,
   steering_rate_event: 0.03,
 };
-
-/**
- * Linear interpolation between named band anchors — never a discrete jump between them, so
- * trend arrows and deltas stay meaningful at fine grain. `anchors` is a list of
- * `[threshold, score]` pairs sorted ascending by threshold; score does not need to be
- * ascending (Execution Hygiene's bands descend, since a lower rate is better).
- *
- * A value below the first anchor or above the last clamps to that anchor's score. A value
- * exactly on a threshold resolves to that anchor's own score — inclusive-lower-bound,
- * matching the `>=` convention `reads-first` and `hands-on` already use for their floors.
- */
-export function interpolateBand(value, anchors) {
-  if (value <= anchors[0][0]) return anchors[0][1];
-  if (value >= anchors[anchors.length - 1][0]) return anchors[anchors.length - 1][1];
-
-  for (let i = 1; i < anchors.length; i += 1) {
-    const [hiThreshold, hiScore] = anchors[i];
-    if (value <= hiThreshold) {
-      const [loThreshold, loScore] = anchors[i - 1];
-      const t = (value - loThreshold) / (hiThreshold - loThreshold);
-      return Math.round((loScore + t * (hiScore - loScore)) * 10) / 10;
-    }
-  }
-
-  // Unreachable — the two clamp checks above cover every value outside [first, last], and
-  // the loop covers every value between two adjacent anchors.
-  return anchors[anchors.length - 1][1];
-}
-
-/** Evidence-Before-Edit rate (0–1). Higher is better. */
-export const EVIDENCE_DISCIPLINE_BANDS = [
-  [0, 1],
-  [0.2, 2],
-  [0.35, 4],
-  [0.5, 6],
-  [0.65, 8],
-  [0.8, 10],
-];
-
-/** Invalid Action rate (0–1), trailing window. Lower is better — score descends as it rises. */
-export const EXECUTION_HYGIENE_BANDS = [
-  [0, 10],
-  [0.02, 10],
-  [0.05, 8],
-  [0.1, 6],
-  [0.18, 4],
-  [0.3, 2],
-];
-
-/**
- * Delta of steering_rate_event (recent − earlier), not the raw rate — see the file header
- * on why this scores a trend. Negative is better (fewer interruptions needed over time).
- * These bands are new, not the raw-rate table Codex originally proposed during design —
- * that table doesn't apply once the source changed from a rate to a delta.
- */
-export const PROMPT_CRAFT_BANDS = [
-  [-0.2, 10],
-  [-0.05, 7],
-  [0, 5],
-  [0.05, 3],
-  [0.2, 1],
-];
 
 function scoreEvidenceDiscipline(qualifying) {
   const agg = aggregate(qualifying);

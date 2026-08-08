@@ -3,15 +3,17 @@ import { expect, test } from 'bun:test';
 import { QUALIFYING_ASSISTANT_TURNS, QUALIFYING_TOOL_CALLS } from './achievements.mjs';
 import { buildJourney } from './journey.mjs';
 import {
-  EVIDENCE_DISCIPLINE_BANDS,
   EVIDENCE_DISCIPLINE_EDIT_FLOOR,
-  EXECUTION_HYGIENE_BANDS,
   EXECUTION_HYGIENE_TRAILING_SESSIONS,
   evaluateRubric,
-  interpolateBand,
-  PROMPT_CRAFT_BANDS,
   RUBRIC_SIGNAL_SCHEMA_VERSION,
 } from './rubric.mjs';
+import {
+  EVIDENCE_DISCIPLINE_BANDS,
+  EXECUTION_HYGIENE_BANDS,
+  PROMPT_CRAFT_BANDS,
+  interpolateBand
+} from '../../shared/rubric-bands.mjs';
 
 /** A qualifying session by default (clears achievements.mjs's tool_calls/turns floor). */
 function session(

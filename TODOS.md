@@ -53,20 +53,13 @@ against. The shared test fixtures written for the boundary-value tests (plan-eng
 double as the starting dataset. Depends on enough real, varied journeys existing — not currently
 blocking, since the "provisional" UI marker is the accepted interim state.
 
-### Duplicated rubric interpolation logic (plugin + app)
-
-**Priority:** P2 (escalated from P3 — the outside-voice pass of `/plan-eng-review`
-correctly pointed out threshold behavior here is user-visible, not just code
-cleanliness: a builder could see two different scores for the same underlying data
-between the CLI preview and the published page if the two implementations drift.)
+### ~~Duplicated rubric interpolation logic (plugin + app)~~
+**Priority:** P2
+**Completed:** v0.8.0 (2026-08-08)
 
 `plugin/lib/rubric.mjs` and `src/lib/rubric.ts` each implement the same band-interpolation
 function independently (plan-eng-review Issue 7b), guarded only by a cross-reference comment and
-shared test fixtures — not a single source of truth. This was a deliberate call: nothing in this
-codebase currently imports plugin `.mjs` modules from `src/` (the plugin has its own, separately
-type-checked `tsconfig.json`), and forcing a cross-project import felt like more blast radius than
-this feature justified. Revisit if the app/plugin TypeScript boundary ever changes — a shared
-package or monorepo tooling would make this genuinely one implementation instead of two.
+shared test fixtures — not a single source of truth. *Consolidated into a shared package at the root `shared/rubric-bands.mjs` and `shared/rubric-bands.d.mts`, which both the plugin and the app import.*
 
 ## Infrastructure
 

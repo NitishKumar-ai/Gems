@@ -29,7 +29,7 @@ async function publishJourney(journey) {
   }
 
   const repo = basename(process.cwd());
-  const host = process.env.GEMS_HOST || 'http://localhost:3000';
+  const host = process.env.GEMS_HOST || 'https://gems.inmodel.in';
   const url = `${host}/api/publish`;
 
   console.log(`Publishing ${repo} to ${host}...`);
