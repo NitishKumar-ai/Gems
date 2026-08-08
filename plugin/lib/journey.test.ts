@@ -6,12 +6,14 @@ import { join } from 'node:path';
 import {
   aggregate,
   buildJourney,
+  compareWindows,
   JOURNEY_SCHEMA_VERSION,
   latestPerSession,
   MIN_SESSIONS_FOR_TREND,
   parseStore,
   readStore,
   sortSessions,
+  trailingWindow,
 } from './journey.mjs';
 
 let root: string;
@@ -35,6 +37,7 @@ function session(
     failures: number;
     turns: number;
     prompts: number;
+    interrupts: number;
     model: string;
   }> = {},
 ) {
@@ -45,6 +48,7 @@ function session(
     failures = 0,
     turns = 0,
     prompts = 0,
+    interrupts = 0,
     model = 'claude-opus-5',
   } = metrics;
 
@@ -70,7 +74,7 @@ function session(
         verify_calls: calls,
         rate: edits ? informed / edits : null,
       },
-      steering: { prompts, commands: 0, interrupts: 0, turns_per_prompt: prompts ? turns / prompts : null },
+      steering: { prompts, commands: 0, interrupts, turns_per_prompt: prompts ? turns / prompts : null },
       invalid_actions: {
         tool_calls: calls,
         tool_failures: failures,
@@ -113,6 +117,26 @@ test('rates are pooled, never averaged across sessions', () => {
   expect(totals.edits).toBe(101);
   expect(totals.informed_edits).toBe(100);
   expect(totals.rates.evidence_before_edit).toBe(0.9901);
+});
+
+test('steering_rate_event is pooled across sessions, like every other rate', () => {
+  const sessions = [
+    session('a', '2026-08-01T00:00:00.000Z', { prompts: 10, interrupts: 1 }),
+    session('b', '2026-08-02T00:00:00.000Z', { prompts: 10, interrupts: 3 }),
+  ];
+
+  expect(aggregate(sessions).rates.steering_rate_event).toBe(0.2); // 4/20, not (0.1+0.3)/2
+});
+
+test('a session with zero prompts cannot move steering_rate_event', () => {
+  // No prompts means no possible interrupt — pooling a (0, 0) contribution is a no-op,
+  // which is what "a session only counts if prompts > 0" resolves to in practice.
+  const sessions = [
+    session('thin', '2026-08-01T00:00:00.000Z', { prompts: 0, interrupts: 0 }),
+    session('real', '2026-08-02T00:00:00.000Z', { prompts: 5, interrupts: 1 }),
+  ];
+
+  expect(aggregate(sessions).rates.steering_rate_event).toBe(0.2);
 });
 
 test('sessions with no metrics are counted as thin history, not as zeroes', () => {
@@ -159,6 +183,24 @@ test('a habit that improved shows a positive Evidence-Before-Edit delta', () => 
 
   // The sign follows the metric, not a notion of "good": fewer failures is a negative delta.
   expect(journey.trend!.delta.invalid_action).toBe(-0.15);
+});
+
+test('Prompt Craft trend: falling steering rate produces a negative delta', () => {
+  // Distinct from the hands-on badge (session-level, permanent floor): this is the trend
+  // of the event-level ratio, recent minus earlier, same sign convention as every other
+  // delta — falling steering is a negative delta, not "improvement" encoded as positive.
+  const early = [0, 1, 2].map((i) =>
+    session(`early${i}`, `2026-06-0${i + 1}T00:00:00.000Z`, { prompts: 10, interrupts: 4 }),
+  );
+  const recent = [0, 1, 2].map((i) =>
+    session(`recent${i}`, `2026-08-0${i + 1}T00:00:00.000Z`, { prompts: 10, interrupts: 1 }),
+  );
+
+  const journey = buildJourney([...recent, ...early]);
+
+  expect(journey.trend!.earlier.steering_rate_event).toBe(0.4);
+  expect(journey.trend!.recent.steering_rate_event).toBe(0.1);
+  expect(journey.trend!.delta.steering_rate_event).toBe(-0.3);
 });
 
 test('a delta is null when one window has nothing to measure', () => {
@@ -270,4 +312,51 @@ test('window summaries carry the counts behind their rates', () => {
 
   expect(journey.trend.earlier.edits).toBe(30);
   expect(journey.trend.recent.edits).toBe(30);
+});
+
+test('trailingWindow is locked (null) until it has a full n sessions', () => {
+  const sessions = Array.from({ length: 9 }, (_, i) =>
+    session(`s${i}`, `2026-08-${String(i + 1).padStart(2, '0')}T00:00:00.000Z`, { calls: 10, failures: 1 }),
+  );
+
+  expect(trailingWindow(sessions, 10)).toBeNull();
+});
+
+test('trailingWindow computes a rate once the window is full', () => {
+  const sessions = Array.from({ length: 10 }, (_, i) =>
+    session(`s${i}`, `2026-08-${String(i + 1).padStart(2, '0')}T00:00:00.000Z`, { calls: 10, failures: 1 }),
+  );
+
+  const window = trailingWindow(sessions, 10);
+
+  expect(window).not.toBeNull();
+  expect(window!.sessions).toBe(10);
+  expect(window!.invalid_action).toBe(0.1);
+});
+
+test('trailingWindow slides — an old session drops out as a new one lands', () => {
+  // Ten clean sessions, then one bad one lands. A permanent floor (like compareWindows'
+  // half-split) would dilute the bad session across all history; a live trailing window
+  // should reflect it fully once it pushes the oldest clean session out.
+  const clean = Array.from({ length: 10 }, (_, i) =>
+    session(`clean${i}`, `2026-08-${String(i + 1).padStart(2, '0')}T00:00:00.000Z`, { calls: 10, failures: 0 }),
+  );
+  const bad = session('bad', '2026-08-11T00:00:00.000Z', { calls: 10, failures: 10 });
+
+  const window = trailingWindow([...clean, bad], 10);
+
+  // Drops clean0, keeps clean1..clean9 + bad: 10 failures across 100 calls.
+  expect(window!.invalid_action).toBe(0.1);
+});
+
+test('trailingWindow raw counts match a compareWindows recent-window aggregate over the same slice', () => {
+  const sessions = Array.from({ length: 10 }, (_, i) =>
+    session(`s${i}`, `2026-08-${String(i + 1).padStart(2, '0')}T00:00:00.000Z`, { edits: 5, informed: 5, calls: 4 }),
+  );
+
+  const window = trailingWindow(sessions, 10);
+  const compared = compareWindows([], sessions);
+
+  expect(window!.edits).toBe(compared.recent.edits);
+  expect(window!.tool_calls).toBe(compared.recent.tool_calls);
 });

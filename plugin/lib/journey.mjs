@@ -18,8 +18,13 @@ import { readFileSync } from 'node:fs';
 
 import { evaluateAchievements } from './achievements.mjs';
 
-/** 2 — Phase 5 added `achievements`, and window summaries gained their raw counts. */
-export const JOURNEY_SCHEMA_VERSION = 2;
+/**
+ * 3 — the rubric feature added `steering_rate_event` to `rates`/`delta` (an event-level
+ * interrupts/prompts ratio, distinct from `hands-on`'s session-level ratio in
+ * achievements.mjs) and the `trailingWindow` function for live, sliding-window rates.
+ * 2 — Phase 5 added `achievements`, and window summaries gained their raw counts.
+ */
+export const JOURNEY_SCHEMA_VERSION = 3;
 
 /**
  * Six sessions, so each half of a comparison has three. Below this, a "trend" is one good
@@ -162,6 +167,14 @@ export function aggregate(sessions) {
       evidence_before_edit: ratio(totals.informed_edits, totals.edits),
       invalid_action: ratio(totals.tool_failures, totals.tool_calls),
       turns_per_prompt: ratio(totals.assistant_turns, totals.prompts + totals.commands),
+      // Event-level: interrupts / prompts. Deliberately distinct from achievements.mjs's
+      // `hands-on` badge, which is a SESSION-level ratio (fraction of sessions with >=1
+      // interrupt, crossed once, permanently). This one measures how often a prompt gets
+      // interrupted at all; its *trend* (compareWindows' delta below), not this raw rate,
+      // is what the rubric's Prompt Craft dimension scores. A session with zero prompts
+      // cannot have a nonzero interrupt count, so pooling already excludes it from moving
+      // this ratio — no separate per-session qualifying filter is needed.
+      steering_rate_event: ratio(totals.interrupts, totals.prompts),
     },
   };
 }
@@ -190,8 +203,23 @@ export function compareWindows(earlier, recent) {
       evidence_before_edit: delta(a.rates.evidence_before_edit, b.rates.evidence_before_edit),
       invalid_action: delta(a.rates.invalid_action, b.rates.invalid_action),
       turns_per_prompt: delta(a.rates.turns_per_prompt, b.rates.turns_per_prompt),
+      steering_rate_event: delta(a.rates.steering_rate_event, b.rates.steering_rate_event),
     },
   };
+}
+
+/**
+ * The last `n` sessions, live and sliding — unlike `compareWindows`' half-split over full
+ * history, this window moves forward every time a new session lands, so it reflects recent
+ * behavior rather than a permanent floor. Returns `null` when fewer than `n` sessions exist
+ * yet, so the caller renders a locked/progress state instead of a rate computed from a
+ * window that isn't full — never a rate silently computed over fewer sessions than promised.
+ */
+export function trailingWindow(sessions, n) {
+  if (sessions.length < n) return null;
+
+  const agg = aggregate(sessions.slice(-n));
+  return { sessions: agg.sessions, edits: agg.edits, tool_calls: agg.tool_calls, ...agg.rates };
 }
 
 export function buildJourney(records, { minSessionsForTrend = MIN_SESSIONS_FOR_TREND } = {}) {
