@@ -1,4 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { scoreFor, SCORED_DIMENSIONS, type ScoredDimensionId } from '@/lib/rubric';
+// Type-only, so it is erased at build and pulls no client component into this server module.
+// Reused rather than redeclared so the badge shape can't drift between the two.
+import type { Achievement } from '@/components/Achievements';
 
 /**
  * Gems — Anthropic-powered builder analysis.
@@ -49,7 +53,18 @@ export type AnalysisInput = {
   };
   rubric: {
     qualifying_sessions: number;
-    dimensions: Record<string, { locked: true } | { locked: false; value: number; evidence: string }>;
+    // evidence-discipline, prompt-craft, execution-hygiene carry a computed 0-10 `score` (the
+    // same number RubricCard renders) alongside the `raw_value` it was interpolated from — a
+    // rate for evidence-discipline, a trend delta for the other two. learning-velocity has no
+    // 0-10 score at all; it's a direction verdict. Handing the model an ambiguous bare `value`
+    // here previously produced text like "prompt-craft scored 0" when the raw delta was 0 but
+    // the displayed score was 5.0/10 — the model had no way to tell a delta from a score.
+    dimensions: Record<
+      string,
+      | { locked: true }
+      | { locked: false; score: number; raw_value: number; evidence: string }
+      | { locked: false; direction: string; directions: Record<string, string | null> }
+    >;
   };
 };
 
@@ -65,22 +80,94 @@ export type AnalysisResult = {
 };
 
 /**
+ * The parsed `metrics` JSON as it arrives from the database — plugin/lib/journey.mjs's
+ * buildJourney() output, which crosses a JSON.parse boundary and so carries no types of its own.
+ * Declared as a partial mirror of what the projection below actually reads rather than `any`:
+ * every field is optional because an older published profile may predate any of them, and
+ * anything absent from this type (`replay_events`, per-session detail) stays unreachable.
+ */
+export type RawRates = {
+  evidence_before_edit?: number | null;
+  invalid_action?: number | null;
+  turns_per_prompt?: number | null;
+  steering_rate_event?: number | null;
+};
+
+export type RawDimension = {
+  locked?: boolean;
+  value?: number;
+  evidence?: string;
+  direction?: string;
+  directions?: Record<string, string | null>;
+};
+
+export type JourneyMetrics = {
+  totals?: {
+    sessions?: number;
+    edits?: number;
+    informed_edits?: number;
+    tool_calls?: number;
+    tool_failures?: number;
+    interrupts?: number;
+    prompts?: number;
+    duration_ms?: number;
+    models?: Record<string, number>;
+    tools?: Record<string, number>;
+    rates?: RawRates;
+  };
+  trend?: {
+    delta?: {
+      evidence_before_edit?: number | null;
+      invalid_action?: number | null;
+      steering_rate_event?: number | null;
+    };
+  } | null;
+  achievements?: {
+    qualifying_sessions?: number;
+    earned?: Achievement[];
+    locked?: Achievement[];
+  };
+  rubric?: {
+    qualifying_sessions?: number;
+    dimensions?: Record<string, RawDimension>;
+  };
+};
+
+/**
  * Projects the full published `metrics` JSON (plugin/lib/journey.mjs's buildJourney() output)
  * down to the aggregate-only subset the model is allowed to see. Deliberately drops
  * `replay_events` and anything not already a count/rate/evidence-string, so "never send raw
  * session content" is true by construction rather than by policy.
  */
-export function buildAnalysisInput(repo: string, metrics: any): AnalysisInput {
-  const totals = metrics?.totals ?? {};
-  const rates = totals.rates ?? {};
-  const achievements = metrics?.achievements ?? {};
-  const rubric = metrics?.rubric ?? {};
+export function buildAnalysisInput(repo: string, metrics: JourneyMetrics | null | undefined): AnalysisInput {
+  const totals: NonNullable<JourneyMetrics['totals']> = metrics?.totals ?? {};
+  const rates: RawRates = totals.rates ?? {};
+  const achievements: NonNullable<JourneyMetrics['achievements']> = metrics?.achievements ?? {};
+  const rubric: NonNullable<JourneyMetrics['rubric']> = metrics?.rubric ?? {};
 
   const dimensions: AnalysisInput['rubric']['dimensions'] = {};
-  for (const [id, dim] of Object.entries<any>(rubric.dimensions ?? {})) {
-    dimensions[id] = dim?.locked
-      ? { locked: true }
-      : { locked: false, value: dim.value, evidence: dim.evidence ?? '' };
+  for (const [id, dim] of Object.entries(rubric.dimensions ?? {})) {
+    if (dim?.locked) {
+      dimensions[id] = { locked: true };
+    } else if ((SCORED_DIMENSIONS as readonly string[]).includes(id)) {
+      // An unlocked scored dimension always carries a numeric `value` (plugin/lib/rubric.mjs
+      // only omits it by locking). The fallback satisfies the type; it is not a real state.
+      const value = dim.value ?? 0;
+      dimensions[id] = {
+        locked: false,
+        score: scoreFor(id as ScoredDimensionId, value),
+        raw_value: value,
+        evidence: dim.evidence ?? '',
+      };
+    } else {
+      // learning-velocity: a direction verdict (improved/declined/flat/mixed), not a 0-10 score.
+      // rubric.mjs's majority vote always yields a string here, falling back to 'mixed' itself.
+      dimensions[id] = {
+        locked: false,
+        direction: dim.direction ?? 'mixed',
+        directions: dim.directions ?? {},
+      };
+    }
   }
 
   return {
@@ -114,7 +201,7 @@ export function buildAnalysisInput(repo: string, metrics: any): AnalysisInput {
       : null,
     achievements: {
       qualifying_sessions: achievements.qualifying_sessions ?? 0,
-      earned: (achievements.earned ?? []).map((b: any) => ({
+      earned: (achievements.earned ?? []).map((b) => ({
         id: b.id,
         title: b.title,
         basis: b.basis,
@@ -132,6 +219,8 @@ export function buildAnalysisInput(repo: string, metrics: any): AnalysisInput {
 const SYSTEM_PROMPT = `You are analyzing a software developer's AI-assisted coding session metrics to produce a short, celebratory "builder report" — the same kind of narrative recap Spotify Wrapped gives listeners, but grounded in real numbers instead of vibes.
 
 You will be given only aggregate counts, rates, and evidence strings already computed from a developer's coding sessions. Never state a number that is not present in the input. Every insight must cite the specific field it is grounded in. Do not invent achievements, rates, or trends beyond what is given. If a dimension is locked or a rate is null, do not speculate about what it might be.
+
+For each scored rubric dimension (evidence-discipline, prompt-craft, execution-hygiene), the input gives you two distinct numbers: \`score\` is the 0-10 rating shown on the page — always use this when you say a dimension "scored" something. \`raw_value\` is the underlying rate or trend delta \`score\` was computed from (e.g. a delta of 0 means "no change," not "scored 0") — cite it only to explain the score, never in place of it. learning-velocity has no score at all, only a \`direction\` verdict (improved/declined/flat/mixed) and a per-metric \`directions\` breakdown.
 
 Write in a warm, direct, slightly playful voice — this is a shareable recap, not a performance review.`;
 

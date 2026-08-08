@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { SCORED_DIMENSIONS, scoreFor, type ScoredDimensionId } from '@/lib/rubric';
 import type { Achievement } from '@/components/Achievements';
+import type { JourneyMetrics } from '@/services/llm';
 
 /**
  * A Wrapped-style animated reveal built around the Anthropic-generated builder report
@@ -117,7 +118,13 @@ function GrowthEdgeCard({ growthEdge, onShare, copied }: { growthEdge: AnalysisR
   );
 }
 
-export default function BuilderReveal({ data, metrics }: { data: AnalysisResult | null; metrics: any }) {
+export default function BuilderReveal({
+  data,
+  metrics,
+}: {
+  data: AnalysisResult | null;
+  metrics: JourneyMetrics | null | undefined;
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -158,8 +165,8 @@ export default function BuilderReveal({ data, metrics }: { data: AnalysisResult 
         render: () => (
           <RubricHighlightCard
             dimensionId={scoredId}
-            score={scoreFor(scoredId, dim.value)}
-            evidence={dim.evidence}
+            score={scoreFor(scoredId, dim.value ?? 0)}
+            evidence={dim.evidence ?? ''}
             insight={data.insights?.[0]}
           />
         ),
@@ -194,7 +201,6 @@ export default function BuilderReveal({ data, metrics }: { data: AnalysisResult 
     }, 4000);
 
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, currentIndex, cards.length]);
 
   if (!data || cards.length === 0) return null;

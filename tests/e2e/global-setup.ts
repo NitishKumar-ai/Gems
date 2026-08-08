@@ -57,6 +57,33 @@ export function fixtureJourney() {
   return buildJourney(sessions);
 }
 
+/**
+ * A hand-built AnalysisResult (src/services/llm.ts's shape) for the BuilderReveal fixture below.
+ * Never produced by calling the real analyzeJourney() — that would make global setup depend on
+ * a live Anthropic call — but shaped exactly like its output so the component under test can't
+ * tell the difference.
+ */
+export function fixtureAnalysis() {
+  return {
+    schema: 1,
+    generated_at: '2026-06-16T12:00:00.000Z',
+    model: 'claude-opus-5',
+    archetype: { name: 'The Evidence Hound', rationale: 'Informed edits climbed from 7/12 to 12/12 across the run.' },
+    headline: 'Sixteen sessions of steadily tightening discipline.',
+    summary:
+      'Evidence-before-edit rose through the run and tool failures stayed at zero throughout. ' +
+      'The habits here compound.',
+    insights: [
+      { label: 'Evidence Discipline', detail: '152/192 edits were informed by evidence (79.2%).' },
+      { label: 'Execution Hygiene', detail: '600 tool calls with a 0.0% failure rate.' },
+    ],
+    growth_edge: {
+      title: 'Tighten steering further',
+      detail: 'Interrupts still land at 50% of prompts — the next gain is fewer mid-turn corrections.',
+    },
+  };
+}
+
 async function globalSetup() {
   if (!TEST_DATABASE_URL) {
     throw new Error('E2E_DATABASE_URL was not set by playwright.config.ts');
@@ -130,6 +157,21 @@ async function globalSetup() {
         username: 'owner',
         repo: 'publishtarget',
         metrics: JSON.stringify(fixtureJourney()),
+      },
+    });
+
+    // Read-only fixture for builder-reveal.spec.ts. A third, isolated row (not shared with the
+    // profile-rendering or publish specs) so this is the only Journey in the fixture set with a
+    // populated `analysis` column — everything else deliberately leaves it null, which is what
+    // lets portfolio.spec.ts and publish-api.spec.ts keep asserting BuilderReveal's absence by
+    // simply never mentioning it.
+    await prisma.journey.create({
+      data: {
+        userId: owner.id,
+        username: 'builder',
+        repo: 'reveal',
+        metrics: JSON.stringify(fixtureJourney()),
+        analysis: JSON.stringify(fixtureAnalysis()),
       },
     });
   } finally {
