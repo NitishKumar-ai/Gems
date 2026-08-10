@@ -50,6 +50,11 @@ jobs:
 
       - run: bun run test:plugin
 
+      # The per-CLI command files under plugin/dist/ are generated from skill/gems.tmpl.md and
+      # committed. This fails if someone edited the template or a host config without regenerating.
+      - name: Verify generated plugin artifacts are current
+        run: bun run gen:plugin --check
+
       - run: bun run test:unit
 
       - run: bun run build

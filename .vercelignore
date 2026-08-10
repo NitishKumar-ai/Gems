@@ -5,3 +5,7 @@
 .env
 .env.local
 .env.*.local
+
+# Vendored gstack reference clone — huge and irrelevant to the deploy. .vercelignore is required
+# because the Vercel CLI does not honor .gitignore when uploading a local directory.
+/vendor/

@@ -10,6 +10,7 @@
     "test:e2e": "playwright test",
     "test:plugin": "bun test plugin/",
     "test:unit": "bun test src/",
+    "gen:plugin": "node plugin/build/generate.mjs",
     "typecheck:plugin": "tsc -p plugin/tsconfig.json --noEmit",
     "postinstall": "prisma generate"
   },

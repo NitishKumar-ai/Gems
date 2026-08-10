@@ -2,6 +2,7 @@
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { readStore, buildJourney } from '../lib/journey.mjs';
+import { captureAll } from '../lib/capture.mjs';
 import https from 'node:https';
 import http from 'node:http';
 import fs from 'node:fs';
@@ -9,6 +10,8 @@ import fs from 'node:fs';
 const args = process.argv.slice(2);
 const isPublish = args.includes('publish') || args.includes('--publish');
 const isLogin = args[0] === 'login';
+const isCapture = args[0] === 'capture';
+const isInstall = args[0] === 'install';
 
 const home = process.env.GEMS_HOME || join(homedir(), '.gems');
 const storePath = join(home, 'sessions.jsonl');
@@ -100,6 +103,37 @@ async function publishJourney(journey) {
 
   req.write(payload);
   req.end();
+}
+
+// `capture` scans every CLI's transcript directory and records whatever is new. It is what the
+// generated skills run before rendering, so a CLI with no session-end hook still accumulates a
+// journey. Idempotent, so running it on every `/gems` invoke is safe.
+if (isCapture) {
+  const res = await captureAll();
+  const perSource = Object.entries(res.sources)
+    .map(([source, n]) => `${n} ${source}`)
+    .join(', ');
+  console.log(
+    `Gems: captured ${res.captured} new session(s)${perSource ? ` (${perSource})` : ''}; ${res.skipped} already recorded.`,
+  );
+  process.exit(0);
+}
+
+// `install [--host <cli>|all]` lays the generated skill + shared engine into a CLI's home. Loaded
+// lazily because it lives under build/, which is present in the repo but not in an installed copy.
+if (isInstall) {
+  const { install } = await import('../build/install.mjs');
+  const hostIdx = args.indexOf('--host');
+  const only = hostIdx !== -1 ? args[hostIdx + 1] : null;
+  const results = install({ only });
+  if (results.length === 0) {
+    console.log('Gems: no supported CLI detected. Pass --host <cli> to install anyway.');
+  }
+  for (const r of results) {
+    if (r.skipped) console.log(`Gems: ${r.host} skipped — ${r.reason}.`);
+    else console.log(`Gems: installed into ${r.host} at ${r.dir}`);
+  }
+  process.exit(0);
 }
 
 try {

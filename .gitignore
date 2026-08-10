@@ -53,6 +53,10 @@ test-results/
 *.db-journal
 tests/e2e/.tmp/
 
+# Vendored reference clone of garrytan/gstack (1.2 GB, its own .git). Kept locally for reference
+# while extending the Gems plugin; never committed and never deployed (see .vercelignore).
+/vendor/
+
 # Local scratch scripts and submission assets (contain local dev keys)
 /publish.js
 /seed.js

@@ -13,6 +13,42 @@ journey out of them.
 The `SessionEnd` hook starts recording from the next session that ends. `/gems` reads what it has
 so far.
 
+## Works with any CLI
+
+The Claude Code plugin above is one *host*. The engine underneath it — `commands/gems.mjs`,
+`lib/*` — is plain Node with no Claude coupling, and `lib/capture.mjs` already reads the transcript
+directories of seven CLIs (Claude Code, Codex, Cursor, Antigravity, Windsurf, Aider, Copilot). So
+Gems installs into other CLIs too, authored once and fanned out per host — the same shape
+[gstack](https://github.com/garrytan/gstack) uses.
+
+```
+plugin/skill/gems.tmpl.md      one authoring source (frontmatter + body)
+  └─ bun run gen:plugin        renders one command/skill file per host into plugin/dist/<host>/
+       ├─ claude-code          mirrors the canonical commands/gems.md (a test holds them in sync)
+       └─ codex                skills/gems/SKILL.md  (frontmatter {name, description})
+```
+
+Install into a CLI with `gems install`:
+
+```
+node commands/gems.mjs install --host codex   # → ~/.codex/skills/gems/
+node commands/gems.mjs install                # every detected CLI
+```
+
+**Why this works without a per-CLI hook.** Only Claude Code fires a `SessionEnd` hook. Everywhere
+else, capture happens *on invoke*: the installed skill runs `gems capture` before rendering, and
+because Gems reads transcripts off disk it never needed a live lifecycle event in the first place.
+
+```
+node commands/gems.mjs capture   # scan every CLI's transcript dir, record what's new (idempotent)
+```
+
+Claude Code keeps installing through the plugin marketplace, so `gems install` reports it as
+marketplace-managed rather than laying down a second copy. `plugin/dist/` is generated and
+committed; `bun run gen:plugin --check` fails if it is stale. Adding Cursor / Windsurf / Copilot /
+Antigravity is a new entry in [build/hosts.mjs](build/hosts.mjs) plus a regenerate — the
+normalizers for their transcripts already exist.
+
 **Scope: capture, extract, journey, achievements, and publish.** `/gems` reads your journey in the
 terminal and works fully offline. `/gems publish` is the only code here that touches the network,
 and it sends the derived artifact described below — never a transcript.
@@ -253,7 +289,12 @@ hatch for non-default Claude Code installs.
 | [.claude-plugin/plugin.json](.claude-plugin/plugin.json) | Manifest |
 | [commands/gems.md](commands/gems.md) | Declares the `/gems` slash command |
 | [hooks/hooks.json](hooks/hooks.json) | Declares the `SessionEnd` hook |
-| [hooks/capture-session.mjs](hooks/capture-session.mjs) | Locates the transcript, extracts, appends one store record |
+| [hooks/capture-session.mjs](hooks/capture-session.mjs) | The Claude Code hook shell — reads stdin, captures one session, exits 0 |
+| [lib/capture.mjs](lib/capture.mjs) | Shared capture core: `captureOne` (hook) and `captureAll` (scan-all, any CLI) |
+| [skill/gems.tmpl.md](skill/gems.tmpl.md) | Single authoring source for the `/gems` command across hosts |
+| [build/hosts.mjs](build/hosts.mjs) | Per-CLI config: frontmatter shape, invocation, install destination |
+| [build/generate.mjs](build/generate.mjs) | `bun run gen:plugin` — renders each host into `dist/`, `--check` freshness gate |
+| [build/install.mjs](build/install.mjs) | `gems install` — copies skill + engine into a CLI's home |
 | [lib/extract.mjs](lib/extract.mjs) | One transcript → one metrics object. Pure, streaming, no I/O beyond the read |
 | [lib/journey.mjs](lib/journey.mjs) | The store → totals and evolution deltas |
 | [lib/achievements.mjs](lib/achievements.mjs) | The store → earned and locked badges, with the evidence for each |
@@ -285,7 +326,9 @@ node -e "import('./plugin/lib/journey.mjs').then(j=>console.log(JSON.stringify(j
 
 ## Not done yet
 
-- Only reads Claude Code. Codex (`~/.codex/sessions/`) and Cursor come later.
+- Captures across seven CLIs and installs into Codex today; Cursor, Windsurf, Copilot and
+  Antigravity have transcript normalizers but no `build/hosts.mjs` entry yet, so they capture but
+  do not yet have a generated `gems install` target.
 - **A nonzero Bash exit is only detectable when the harness marks it.** A command that fails while
   exiting 0 — a test runner that prints failures and returns success, say — is invisible here. The
   invalid action rate measures failed *tool calls*, not failed work, and should not be described as

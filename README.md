@@ -49,6 +49,12 @@ about whether you understood what you shipped.
 Then `/gems` in any repository. Publishing to a profile additionally needs a `GEMS_API_KEY` from
 `/dashboard`.
 
+**Other CLIs.** The capture engine is CLI-agnostic — it reads the transcript directories of seven
+tools — and the `/gems` command is authored once and generated per host. Install it into another
+CLI (Codex today) with `node plugin/commands/gems.mjs install --host codex`; capture there happens
+on invoke, since only Claude Code fires a session-end hook. See
+[plugin/README.md](plugin/README.md#works-with-any-cli).
+
 ## Current state
 
 The plugin is real end to end: it captures each session, derives metrics, evaluates achievements, and
